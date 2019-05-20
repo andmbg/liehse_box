@@ -68,6 +68,9 @@ checklist = buttons.Checklist()
 # inbox filters parasitic keylogs, returns chords
 inbox = buttons.Inbox()
 
+outbox = buttons.Record()
+
+
 
 
 # return clean single button events. Clean means no bouncing.
@@ -102,7 +105,7 @@ def red_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i}" % state)
+    print("( ,  ,  , %i)" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
                           red_log,
@@ -117,7 +120,7 @@ def green_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i}" % state)
+    print("( ,  , %i,  )" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
                           green_log,
@@ -133,7 +136,7 @@ def white_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i}" % state)
+    print("( , %i,  ,  )" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
                           white_log,
@@ -146,6 +149,8 @@ def white_callback(channel):
     
 def black_callback(channel):
     # returns (button, time, state):
+    print "last chord:", inbox.last_chord
+    print "slots now: ", inbox.slots
     print("(   %i, %i, %i)" % (1-GPIO.input(18), 1-GPIO.input(15), 1-GPIO.input(14)))
 
 

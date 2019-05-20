@@ -3,7 +3,10 @@ import time
 import collections
 import random
 from threading import Timer
+import logging
 
+logging.basicConfig(level = logging.DEBUG,
+                    format='(%(threadName)-10s) %(message)s',)
 
 Chord = collections.namedtuple("Chord",
                                "timestamp black green red white")
@@ -106,7 +109,8 @@ class Inbox():
         self.slots[slot] = logentry[2]
         self.listener = r
         Timer(delay, self.send, [r]).start()
-    
+            
     def send(self, r):
         if self.listener == r:
-            print(self.slots.values())
+            logging.debug(self.slots)
+
