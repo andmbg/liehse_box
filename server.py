@@ -3,7 +3,13 @@ from flask_socketio import SocketIO, emit
 import RPi.GPIO as GPIO
 import time
 import collections
-import buttons
+#import buttons
+import random
+import threading
+import logging
+
+logging.basicConfig(level = logging.DEBUG,
+                    format='(%(threadName)-10s) %(message)s',)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -49,10 +55,6 @@ def timestamp(): return time.time() - start_time
 
 
 
-# create the container of our log, the thing that we will save later:
-button_record = buttons.Record()
-
-
 
 # setup single logs for debouncing (these don't end up in the result):
 red_log   = [("red", timestamp(), 0)]
@@ -63,12 +65,32 @@ black_log = [("black", timestamp(), 0)]
 
 
 # setup checklist for 2-chords already pressed:
-checklist = buttons.Checklist()
+#checklist = 
+
+
 
 # inbox filters parasitic keylogs, returns chords
-inbox = buttons.Inbox()
+inbox = { 'red': 0,
+          'green': 0,
+          'white': 0,
+          'black': 0 }
 
-outbox = buttons.Record()
+# only the last button press's Timer should be relevant:
+listener = 0
+
+def schedule_set(logentry, delay = 0.2):
+    global inbox
+    global listener
+    r = random.random()
+    slot = logentry[0]
+    inbox[slot] = logentry[2]
+    listener = r
+    threading.Timer(delay, send_chord, [r]).start()
+    
+def send_chord(r):
+    if listener == r:
+        logging.debug(inbox)
+
 
 
 
@@ -114,7 +136,7 @@ def red_callback(channel):
     if logentry == None: return
     
     red_log.append(logentry)
-    inbox.schedule_set(logentry, delay = DELAY)
+    schedule_set(logentry, delay = DELAY)
             
 def green_callback(channel):
     # hack against bouncing:
@@ -130,7 +152,7 @@ def green_callback(channel):
     if logentry == None: return
 
     green_log.append(logentry)
-    inbox.schedule_set(logentry, delay = DELAY)
+    schedule_set(logentry, delay = DELAY)
             
 def white_callback(channel):
     # hack against bouncing:
@@ -145,7 +167,7 @@ def white_callback(channel):
     if logentry == None: return
 
     white_log.append(logentry)
-    inbox.schedule_set(logentry, delay = DELAY)
+    schedule_set(logentry, delay = DELAY)
     
 def black_callback(channel):
     # returns (button, time, state):

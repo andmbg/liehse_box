@@ -94,23 +94,4 @@ class Checklist():
 
 
 
-class Inbox():
-    def __init__(self):
-        self.slots = { 'red': 0,
-                       'green': 0,
-                       'white': 0,
-                       'black': 0 }
-                       
-        self.listener = None
-    
-    def schedule_set(self, logentry, delay = 0.2):
-        r = random.random()
-        slot = logentry[0]
-        self.slots[slot] = logentry[2]
-        self.listener = r
-        Timer(delay, self.send, [r]).start()
-            
-    def send(self, r):
-        if self.listener == r:
-            logging.debug(self.slots)
 
