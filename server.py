@@ -99,17 +99,26 @@ def button_log(channel, log, this_time, this_state):
 
 
 def red_callback(channel):
+    # hack against bouncing:
+    time.sleep(.01)
+    state = 1 - GPIO.input(channel)
+    print("{ ,  ,  , %i} raw" % state)
     # returns (button, time, state):
     res = button_log(channel,
                      red_log,
                      timestamp(),
-                     1 - GPIO.input(channel))
-    if not res == None:
-        red_log.append(res)
-        if res[2] == 1: inbox.schedule_on("red", delay = DELAY)
-        if res[2] == 0: inbox.schedule_off("red", delay = DELAY)
+                     state)
+    if res == None: return
+    
+    red_log.append(res)
+    if res[2] == 1: inbox.schedule_on("red", delay = DELAY)
+    if res[2] == 0: inbox.schedule_off("red", delay = DELAY)
         
 def green_callback(channel):
+    # hack against bouncing:
+    time.sleep(.01)
+    state = 1 - GPIO.input(channel)
+    print("{ ,  ,  , %i} raw" % state)
     # returns (button, time, state):
     res = button_log(channel,
                      green_log,
@@ -122,6 +131,10 @@ def green_callback(channel):
         if res[2] == 0: inbox.schedule_off("green", delay = DELAY)
         
 def white_callback(channel):
+    # hack against bouncing:
+    time.sleep(.01)
+    state = 1 - GPIO.input(channel)
+    print("{ ,  ,  , %i} raw" % state)
     # returns (button, time, state):
     res = button_log(channel,
                      white_log,
@@ -134,35 +147,28 @@ def white_callback(channel):
         
 def black_callback(channel):
     # returns (button, time, state):
-    res = button_log(channel,
-                     black_log,
-                     timestamp(),
-                     1 - GPIO.input(channel))
-    if not res == None:
-        black_log.append(res)
-        if res[2] == 1: inbox.schedule_on("black", delay = DELAY)
-        if res[2] == 0: inbox.schedule_off("black", delay = DELAY)            
+    print("(   %i, %i, %i)" % (1-GPIO.input(18), 1-GPIO.input(15), 1-GPIO.input(14)))
 
 
 # Set up listeners on GPIOs:
 GPIO.add_event_detect(red,
                       GPIO.BOTH,
-                      bouncetime = 10,
+                      bouncetime = 20,
                       callback = red_callback)
 
 GPIO.add_event_detect(green,
                       GPIO.BOTH,
-                      bouncetime = 10,
+                      bouncetime = 20,
                       callback = green_callback)
 
 GPIO.add_event_detect(white,
                       GPIO.BOTH,
-                      bouncetime = 10,
+                      bouncetime = 20,
                       callback = white_callback)
 
 GPIO.add_event_detect(black,
                       GPIO.BOTH,
-                      bouncetime = 10,
+                      bouncetime = 20,
                       callback = black_callback)
 
 

@@ -117,4 +117,3 @@ class Inbox():
     def send(self, r):
         if self.listener == r:
             print(self.slots.values())
-    
