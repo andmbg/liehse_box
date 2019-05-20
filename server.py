@@ -102,49 +102,48 @@ def red_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i} raw" % state)
+    print("{ ,  ,  , %i}" % state)
     # returns (button, time, state):
-    res = button_log(channel,
-                     red_log,
-                     timestamp(),
-                     state)
-    if res == None: return
+    logentry = button_log(channel,
+                          red_log,
+                          timestamp(),
+                          state)
+    if logentry == None: return
     
-    red_log.append(res)
-    if res[2] == 1: inbox.schedule_on("red", delay = DELAY)
-    if res[2] == 0: inbox.schedule_off("red", delay = DELAY)
-        
+    red_log.append(logentry)
+    inbox.schedule_set(logentry, delay = DELAY)
+            
 def green_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i} raw" % state)
+    print("{ ,  ,  , %i}" % state)
     # returns (button, time, state):
-    res = button_log(channel,
-                     green_log,
-                     timestamp(),
-                     1 - GPIO.input(channel))
+    logentry = button_log(channel,
+                          green_log,
+                          timestamp(),
+                          1 - GPIO.input(channel))
     
-    if not res == None:
-        green_log.append(res)
-        if res[2] == 1: inbox.schedule_on("green", delay = DELAY)
-        if res[2] == 0: inbox.schedule_off("green", delay = DELAY)
-        
+    if logentry == None: return
+
+    green_log.append(logentry)
+    inbox.schedule_set(logentry, delay = DELAY)
+            
 def white_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("{ ,  ,  , %i} raw" % state)
+    print("{ ,  ,  , %i}" % state)
     # returns (button, time, state):
-    res = button_log(channel,
-                     white_log,
-                     timestamp(),
-                     1 - GPIO.input(channel))
-    if not res == None:
-        white_log.append(res)
-        if res[2] == 1: inbox.schedule_on("white", delay = DELAY)
-        if res[2] == 0: inbox.schedule_off("white", delay = DELAY)
-        
+    logentry = button_log(channel,
+                          white_log,
+                          timestamp(),
+                          1 - GPIO.input(channel))
+    if logentry == None: return
+
+    white_log.append(logentry)
+    inbox.schedule_set(logentry, delay = DELAY)
+    
 def black_callback(channel):
     # returns (button, time, state):
     print("(   %i, %i, %i)" % (1-GPIO.input(18), 1-GPIO.input(15), 1-GPIO.input(14)))

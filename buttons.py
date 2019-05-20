@@ -100,18 +100,11 @@ class Inbox():
                        
         self.listener = None
     
-    def schedule_on(self, slot, delay = 0.2):
+    def schedule_set(self, logentry, delay = 0.2):
         r = random.random()
-        self.slots[slot] = 1
+        slot = logentry[0]
+        self.slots[slot] = logentry[2]
         self.listener = r
-        # start timer on 
-        Timer(delay, self.send, [r]).start()
-    
-    def schedule_off(self, slot, delay = 0.2):
-        r = random.random()
-        self.slots[slot] = 0
-        self.listener = r
-        # start timer on 
         Timer(delay, self.send, [r]).start()
     
     def send(self, r):
