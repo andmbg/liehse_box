@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit
 import RPi.GPIO as GPIO
 import time
 import collections
-#import buttons
+import buttons
 import random
 import threading
 import logging
@@ -78,6 +78,9 @@ inbox = { 'red': 0,
 # only the last button press's Timer should be relevant:
 listener = 0
 
+# our log:
+record = []
+
 def schedule_set(logentry, delay = 0.2):
     global inbox
     global listener
@@ -88,6 +91,7 @@ def schedule_set(logentry, delay = 0.2):
     threading.Timer(delay, send_chord, [r]).start()
     
 def send_chord(r):
+    global record
     if listener == r:
         logging.debug(inbox)
 

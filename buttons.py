@@ -1,12 +1,4 @@
-import RPi.GPIO as GPIO
-import time
 import collections
-import random
-from threading import Timer
-import logging
-
-logging.basicConfig(level = logging.DEBUG,
-                    format='(%(threadName)-10s) %(message)s',)
 
 Chord = collections.namedtuple("Chord",
                                "timestamp black green red white")
@@ -60,35 +52,6 @@ class Record():
     def last_entry(self):
         return self.entries[-1]
 
-
-
-
-class Checklist():
-    def __init__(self):
-        # structure: ID: [timestamp, successful]
-        self.entries = { "BG": [None, False],
-                         "BR": [None, False],
-                         "BW": [None, False],
-                         "GR": [None, False],
-                         "GW": [None, False],
-                         "RW": [None, False] }
-    
-    def add_if_unique(self, rec):
-        assert type(rec) is Record_entry,\
-               "argument to add_if_unique must be Record_entry type."
-        
-        # is this a 2-combo? (no 3- or 4-combo):
-        if rec.number_pressed != 2: return
-        else:
-            if rec.black == 1 and rec.green == 1: combo = "BG"
-            if rec.black == 1 and rec.red == 1: combo = "BR"
-            if rec.black == 1 and rec.white == 1: combo = "BW"
-            if rec.green == 1 and rec.green == 1: combo = "GR"
-            if rec.green == 1 and rec.white == 1: combo = "GW"
-            if rec.red == 1 and rec.white == 1: combo = "RW"
-
-            if self.entries[combo][0] == None:
-                self.entries[combo][0] = rec.timestamp
 
 
 
