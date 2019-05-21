@@ -27,6 +27,8 @@ class Record_entry():
     def string(self):
         return("%f: [%i, %i, %i, %i]" % (self.timestamp, self.black, self.green, self.red, self.white))
 
+    def is_empty(self):
+        if self.red + self.green + self.white + self.black == 0: return True
     
 
 
