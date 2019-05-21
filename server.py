@@ -7,6 +7,7 @@ import buttons
 import random
 import threading
 import logging
+import pprint
 
 logging.basicConfig(level = logging.DEBUG,
                     format='(%(threadName)-10s) %(message)s',)
@@ -57,10 +58,10 @@ def timestamp(): return time.time() - start_time
 
 
 # setup single logs for debouncing (these don't end up in the result):
-red_log   = [("red", timestamp(), 0)]
-green_log = [("green", timestamp(), 0)]
-white_log = [("white", timestamp(), 0)]
-black_log = [("black", timestamp(), 0)]
+red_debouncelog   = [("red", timestamp(), 0)]
+green_debouncelog = [("green", timestamp(), 0)]
+white_debouncelog = [("white", timestamp(), 0)]
+black_debouncelog = [("black", timestamp(), 0)]
 
 
 
@@ -79,23 +80,28 @@ inbox = { 'red': 0,
 listener = 0
 
 # our log:
-record = []
+record = buttons.Record()
+logging.debug(type(record))
+
+
 
 def schedule_set(logentry, delay = 0.2):
+    
+    def send_chord(chord, timerID):
+        global record
+        if listener == timerID:
+            newentry = buttons.Record_entry(timestamp(), chord)
+            record.add_entry(newentry)
+            logging.debug("send_chord(): %s" % record.last().string())
+            logging.debug(id(record))
+ 
     global inbox
     global listener
-    r = random.random()
+    timerID = random.random()
     slot = logentry[0]
     inbox[slot] = logentry[2]
-    listener = r
-    threading.Timer(delay, send_chord, [r]).start()
-    
-def send_chord(r):
-    global record
-    if listener == r:
-        logging.debug(inbox)
-
-
+    listener = timerID
+    threading.Timer(delay, send_chord, [inbox, timerID]).start()
 
 
 
@@ -125,8 +131,6 @@ def button_log(channel, log, this_time, this_state):
 
 
 
-
-
 def red_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
@@ -134,12 +138,12 @@ def red_callback(channel):
     print("( ,  ,  , %i)" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
-                          red_log,
+                          red_debouncelog,
                           timestamp(),
                           state)
     if logentry == None: return
     
-    red_log.append(logentry)
+    red_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
             
 def green_callback(channel):
@@ -149,15 +153,15 @@ def green_callback(channel):
     print("( ,  , %i,  )" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
-                          green_log,
+                          green_debouncelog,
                           timestamp(),
                           1 - GPIO.input(channel))
     
     if logentry == None: return
 
-    green_log.append(logentry)
+    green_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
-            
+
 def white_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
@@ -165,19 +169,26 @@ def white_callback(channel):
     print("( , %i,  ,  )" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
-                          white_log,
+                          white_debouncelog,
                           timestamp(),
                           1 - GPIO.input(channel))
     if logentry == None: return
 
-    white_log.append(logentry)
+    white_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
-    
+
+
+
 def black_callback(channel):
-    # returns (button, time, state):
-    print "last chord:", inbox.last_chord
-    print "slots now: ", inbox.slots
-    print("(   %i, %i, %i)" % (1-GPIO.input(18), 1-GPIO.input(15), 1-GPIO.input(14)))
+    # hack against bouncing:
+    time.sleep(.01)
+    state = 1 - GPIO.input(channel)
+    
+    if state == 0: return
+    
+    global record
+    pprint.pprint(record.string())
+
 
 
 # Set up listeners on GPIOs:
@@ -217,3 +228,4 @@ def on_connect():
 
 if __name__ == "__main__":
     socketio.run(app)
+
