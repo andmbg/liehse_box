@@ -44,6 +44,9 @@ class Record():
     def last(self):
         if len(self.entries) > 0:
             return(self.entries[-1])
+            
+    def len(self):
+        return(len(self.entries))
 
 
 

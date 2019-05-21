@@ -8,6 +8,17 @@ import random
 import threading
 import logging
 import pprint
+import blinkt
+from math import sin, pi
+import event_triggers
+from config import record
+
+# B. is for direct mechanical debouncing, replacing the insufficient
+# built-in mechanism. D. is for dealing with parasitic keylogs.
+BOUNCETIME = 0.2 # seconds
+DELAY = 0.2
+
+
 
 logging.basicConfig(level = logging.DEBUG,
                     format='(%(threadName)-10s) %(message)s',)
@@ -17,37 +28,19 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
 
-# remove mechanical button bounce and parasitic keylogs:
-BOUNCETIME = 0.5 # seconds
-DELAY = 0.2
-
+# setup pins to listen to:
+pins = {
+    14: {'name': 'red'},
+    15: {'name': 'green'},
+    18: {'name': 'white'},
+    25: {'name': 'black'}
+    }
+    
 # How RPi numbers GPIO pins. Consider BOARD as alternative:
 GPIO.setmode(GPIO.BCM)
 
-# Check numbering mode above and check where buttons are connected,
-# amend below as needed:
-red = 14
-green = 15
-white = 18
-black = 25
-
-
-
-GPIO.setup(red,
-           GPIO.IN,
-           pull_up_down = GPIO.PUD_UP)
-
-GPIO.setup(green,
-           GPIO.IN,
-           pull_up_down = GPIO.PUD_UP)
-
-GPIO.setup(white,
-           GPIO.IN,
-           pull_up_down = GPIO.PUD_UP)
-
-GPIO.setup(black,
-           GPIO.IN,
-           pull_up_down = GPIO.PUD_UP)
+for pin in pins:
+    GPIO.setup(pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
 
 
 
@@ -56,17 +49,11 @@ def timestamp(): return time.time() - start_time
 
 
 
-
 # setup single logs for debouncing (these don't end up in the result):
 red_debouncelog   = [("red", timestamp(), 0)]
 green_debouncelog = [("green", timestamp(), 0)]
 white_debouncelog = [("white", timestamp(), 0)]
 black_debouncelog = [("black", timestamp(), 0)]
-
-
-
-# setup checklist for 2-chords already pressed:
-#checklist = 
 
 
 
@@ -80,21 +67,12 @@ inbox = { 'red': 0,
 listener = 0
 
 # our log:
-record = buttons.Record()
-logging.debug(type(record))
+#record = buttons.Record()
+#logging.debug("variable 'record' set up as %s" % type(record))
 
 
 
 def schedule_set(logentry, delay = 0.2):
-    
-    def send_chord(chord, timerID):
-        global record
-        if listener == timerID:
-            newentry = buttons.Record_entry(timestamp(), chord)
-            record.add_entry(newentry)
-            logging.debug("send_chord(): %s" % record.last().string())
-            logging.debug(id(record))
- 
     global inbox
     global listener
     timerID = random.random()
@@ -103,6 +81,16 @@ def schedule_set(logentry, delay = 0.2):
     listener = timerID
     threading.Timer(delay, send_chord, [inbox, timerID]).start()
 
+# form Record_entry from inbox chord, add to the record, check record
+# to trigger events (success, others):
+def send_chord(chord, timerID):
+    global record
+    if listener == timerID:
+        newentry = buttons.Record_entry(timestamp(), chord)
+        record.add_entry(newentry)
+        logging.debug("send_chord(): %s" % record.last().string())
+        event_triggers.on_entry() # check for event triggers
+               
 
 
 # return clean single button events. Clean means no bouncing.
@@ -113,21 +101,19 @@ def button_log(channel, log, this_time, this_state):
               15: "green",
               18: "white",
               25: "black"}[channel]
-    res = None
+    logentry = None
 
     # is this state different? log it:
     if this_state != last_state:
-        res = (button, this_time, this_state)
+        logentry = (button, this_time, this_state)
 
     # this state is the same? if the interval is > BOUNCETIME,
     # it's a 1 glued right before a 0 -- log it as 0, likely
     # ignore the actual 0, leading to a clean button release:
     if this_state == last_state and \
        this_time - last_time > BOUNCETIME:
-            res = (button, this_time, 1 - this_state)
-    
-    #print(res, 1 - GPIO.input(15))
-    return(res)
+            logentry = (button, this_time, 1 - this_state)
+    return(logentry)
 
 
 
@@ -145,6 +131,7 @@ def red_callback(channel):
     
     red_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
+    
             
 def green_callback(channel):
     # hack against bouncing:
@@ -177,42 +164,46 @@ def white_callback(channel):
     white_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
 
-
-
 def black_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    
+
     if state == 0: return
-    
+
     global record
     pprint.pprint(record.string())
 
+    threading.Thread(target = success).start()
+
+
+
+
+
+
+    
 
 
 # Set up listeners on GPIOs:
-GPIO.add_event_detect(red,
+GPIO.add_event_detect(14,
                       GPIO.BOTH,
                       bouncetime = 20,
                       callback = red_callback)
 
-GPIO.add_event_detect(green,
+GPIO.add_event_detect(15,
                       GPIO.BOTH,
                       bouncetime = 20,
                       callback = green_callback)
 
-GPIO.add_event_detect(white,
+GPIO.add_event_detect(18,
                       GPIO.BOTH,
                       bouncetime = 20,
                       callback = white_callback)
 
-GPIO.add_event_detect(black,
+GPIO.add_event_detect(25,
                       GPIO.BOTH,
                       bouncetime = 20,
                       callback = black_callback)
-
-
 
 
 
