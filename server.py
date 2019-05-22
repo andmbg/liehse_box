@@ -24,8 +24,16 @@ DEBUGLEVEL = logging.INFO
 
 record = buttons.Record()
 listener = 0
+#sessionid = ""
 
 def new_participant():
+    # setup logging once per starting the box:
+    session_date = time.localtime()
+    global sessionid
+    sessionid = "%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d" % ( \
+        session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
+        ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
+        session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
     global record
     record = buttons.Record()
     global start_time
@@ -187,6 +195,7 @@ def on_entry(newentry):
 
     test_first(newentry)
     test_flush_record(newentry)
+    test_new_session(newentry)
 
 
 
@@ -219,9 +228,20 @@ def test_first(newentry):
 
 def test_flush_record(newentry):
     global record
+    global sessionid
+    print(sessionid)
     if record.testcode([9,11,9,13,9,0]):
         record.chop(6)
-        pprint.pprint(record.string())
+        with open("records/%s.record" % sessionid, 'w') as f:
+            f.write(record.csv())
+
+def test_new_session(newentry):
+    global record
+    if record.testcode([6,0,6,0]):
+        print("got it")
+        threading.Thread(target = led_bluenote).start()
+        new_participant()
+        
 
 # if interval (30s?) has elapsed and newentry contains white, success.
 def test_post_interval_white(newentry, interval):
@@ -266,16 +286,6 @@ def led_redtick(duration = 0.1):
 # =====================================================================
 #  Beginning of app:
 # ---------------------------------------------------------------------
-
-# setup logging once per starting the box:
-session_date = time.localtime()
-logfilename = "log/%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d.log" % ( \
-    session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
-    ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
-    session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
-logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        filename=logfilename, filemode='w')
-logging.info("Log %s start.\n-----------------------" % logfilename[4:])
 
 
 
@@ -322,6 +332,10 @@ GPIO.add_event_detect(25,
 
 new_participant()
 
+logfilename = "log/%s.log" % sessionid
+logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
+                        filename=logfilename, filemode='w')
+logging.info("Log %s start.\n-----------------------" % sessionid)
 
 
 @app.route("/")

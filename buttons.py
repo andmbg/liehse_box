@@ -27,12 +27,18 @@ class Record_entry():
     def string(self):
         return("%f: [%i, %i, %i, %i]" % (self.timestamp, self.black, self.green, self.red, self.white))
 
+    def csv(self):
+        return("%f, %i, %i, %i, %i" % (self.timestamp, self.black, self.green, self.red, self.white))
+        
+        
     def is_empty(self):
         if self.black + self.green + self.red + self.white == 0: return True
         else: return False
     
     def code(self):
         return(self.black + 2*self.green + 4*self.red + 8*self.white)
+        
+
     
 
 
@@ -44,8 +50,9 @@ class Record():
         assert type(entry) is Record_entry, "attempt to add something other than a Record_entry to Record."
         self.entries.append(entry)
     
-    def string(self):
-        return [ entry.string() for entry in self.entries ]
+    def csv(self):
+        entrylist = [ entry.csv() for entry in self.entries ]
+        return('\n'.join(entrylist))
     
     def last(self):
         if len(self.entries) > 0:
