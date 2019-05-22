@@ -175,25 +175,31 @@ def white_callback(channel):
 
 
 
-# =================================
-#  Handling newly recorded entries
-# ---------------------------------
 
-
+# Handling newly recorded entries
 # whenever a new Record_entry is sent to record:
 def on_entry(newentry):
     logging.debug("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
     
-    test_button_press(newentry) # on any button or chord above delay threshold
-    test_full_chord(newentry) # on red + green + white
+    # on any button or chord above delay threshold
+    # THIS IS WHERE WE LOG CHORDS!
+    test_button_press(newentry)
+
+    test_first(newentry)
+    test_flush_record(newentry)
 
 
 
+
+
+
+
+
+# ===============================================================
 #  Tests:
-# --------
+# ---------------------------------------------------------------
 
 def test_button_press(newentry):
-    global record
     # was it just a below-threshold short press [0,0,0,0]? Remove from log.
     lastentry = record.last()
     logging.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
@@ -204,22 +210,27 @@ def test_button_press(newentry):
     record.add_entry(newentry)
     logging.info(newentry.string())
     threading.Thread(target = led_redtick).start()
-    print(record.testcode([1,0,14]))
-        
 
+def test_first(newentry):
+    global start_time
+    if record.len() == 1:
+        start_time = time.time()
+        record.entries[0].timestamp = time.time()
 
-def test_full_chord(newentry):
-    logging.debug("test_full_chord: last = %s" % newentry.string())
-    if newentry.red and newentry.green and newentry.white:
-        logging.debug("test_full_chord: red=%i, green=%i, white=%i" % \
-            (newentry.red, newentry.green, newentry.white))
-        threading.Thread(target = led_bluenote, args = (1,)).start()
-        
+def test_flush_record(newentry):
+    global record
+    if record.testcode([9,11,9,13,9,0]):
+        record.chop(6)
+        pprint.pprint(record.string())
+
+# if interval (30s?) has elapsed and newentry contains white, success.
+def test_post_interval_white(newentry, interval):
+    pass
     
     
 
 
-#  Outcomes:
+#  LED actions:
 # -----------
 
 def led_bluenote(duration = 1):
@@ -240,6 +251,14 @@ def led_redtick(duration = 0.1):
     time.sleep(duration)
     blinkt.set_pixel(0, 0,0,0)
     blinkt.show()
+
+
+
+
+
+
+
+
 
 
 

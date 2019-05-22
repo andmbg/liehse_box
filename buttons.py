@@ -58,14 +58,12 @@ class Record():
     def len(self):
         return(len(self.entries))
         
-    def chop(self):
-        self.entries.remove(self.entries[-1])
+    def chop(self, n=1):
+        self.entries = self.entries[:-n]
     
     def testcode(self, codeseq):
         if len(codeseq) > len(self.entries): return
-        
         reference = [ i.code() for i in self.entries[-len(codeseq):] ]
-        print("%s -- %s" % (reference, codeseq))
         return(codeseq == reference)
         
 
