@@ -218,28 +218,30 @@ def test_button_press(newentry):
     
     record.add_entry(newentry)
     logging.info(newentry.string())
-    threading.Thread(target = led_redtick).start()
+    #threading.Thread(target = led_redtick).start()
 
 def test_first(newentry):
     global start_time
     if record.len() == 1:
         start_time = time.time()
         record.entries[0].timestamp = time.time()
+        logging.debug("registered first press in session")
 
 def test_flush_record(newentry):
     global record
     global sessionid
-    print(sessionid)
     if record.testcode([9,11,9,13,9,0]):
         record.chop(6)
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(record.csv())
+        logging.info("wrote record to records/%s.record" % sessionid)
+        threading.Thread(target = led_matrix, args = (ledmat_knight,255,0,0,2)).start()
 
 def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
-        print("got it")
-        threading.Thread(target = led_bluenote).start()
+        logging.info("starting new session")
+        threading.Thread(target = led_matrix, args = (ledmat_police,0,0,255,4)).start()
         new_participant()
         
 
@@ -271,11 +273,26 @@ def led_redtick(duration = 0.1):
     time.sleep(duration)
     blinkt.set_pixel(0, 0,0,0)
     blinkt.show()
+    
+    
 
+def led_matrix(mat, r,g,b, times):
+    for i in range(times):
+        for line in mat:
+            blinkt.clear()
+            for column in range(len(line)):
+                val = int(line[column])
+                print(r*val,g*val,b*val, line[column])
+                blinkt.set_pixel(column, r*val,g*val,b*val)
+            blinkt.show()
+            time.sleep(0.01)
+        blinkt.clear()
+    blinkt.show()
 
-
-
-
+                
+                
+            
+        
 
 
 
@@ -328,6 +345,13 @@ GPIO.add_event_detect(25,
                       bouncetime = 20,
                       callback = white_callback)
 
+
+def matrix(infile):
+    contents = open(infile).read()
+    return [item.split() for item in contents.split('\n')[:-1]]
+    
+ledmat_police = matrix("led patterns/police")
+ledmat_knight = matrix("led patterns/knight")
 
 
 new_participant()
