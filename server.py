@@ -87,9 +87,8 @@ def send_chord(chord, timerID):
     global record
     if listener == timerID:
         newentry = buttons.Record_entry(timestamp(), chord)
-        record.add_entry(newentry)
-        logging.debug("send_chord(): %s" % record.last().string())
-        event_triggers.on_entry() # check for event triggers
+        logging.debug("send_chord(): %s" % newentry.string())
+        event_triggers.on_entry(newentry) # check for event triggers
                
 
 
@@ -121,12 +120,9 @@ def red_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("( ,  ,  , %i)" % state)
+    logging.debug("( ,  ,  , %i)" % state)
     # returns (button, time, state):
-    logentry = button_log(channel,
-                          red_debouncelog,
-                          timestamp(),
-                          state)
+    logentry = button_log(channel, red_debouncelog, timestamp(), state)
     if logentry == None: return
     
     red_debouncelog.append(logentry)
@@ -173,8 +169,6 @@ def black_callback(channel):
 
     global record
     pprint.pprint(record.string())
-
-    threading.Thread(target = success).start()
 
 
 

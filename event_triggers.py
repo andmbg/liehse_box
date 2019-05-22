@@ -6,29 +6,37 @@ import time
 
 blinkt.set_brightness(0.1)
 
-def on_entry():
-	logging.debug("on_entry() record length: %s" % record.len())
+# whenever a new Record_entry is sent to record:
+def on_entry(newentry):
+	logging.debug("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
 	
-	test_button_press(record) # on any button or chord
-	test_full_chord(record) # on red + green + white
+	test_button_press(newentry) # on any button or chord
+	test_full_chord(newentry) # on red + green + white
 
 
 
 #  Tests:
 # --------
 
-def test_button_press(record):
-	logging.debug("test_button_press(record = %s)" % record)
+def test_button_press(newentry):
+	global record
+	# was it just a below-threshold short press [0,0,0,0]? Remove from log.
+	lastentry = record.last()
+	logging.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
+		
+	if newentry.is_empty():
+		if lastentry == None or lastentry.is_empty(): return
+	
+	record.add_entry(newentry)
 	threading.Thread(target = led_redtick).start()
 		
 
 
-def test_full_chord(record):
-	last = record.last()
-	logging.debug("test_full_chord: last = %s" % last)
-	if last.red and last.green and last.white:
+def test_full_chord(newentry):
+	logging.debug("test_full_chord: last = %s" % newentry.string())
+	if newentry.red and newentry.green and newentry.white:
 		logging.debug("test_full_chord: red=%i, green=%i, white=%i" % \
-			(last.red, last.green, last.white))
+			(newentry.red, newentry.green, newentry.white))
 		threading.Thread(target = led_bluenote, args = (1,)).start()
 		
 	

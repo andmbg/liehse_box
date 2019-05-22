@@ -29,6 +29,7 @@ class Record_entry():
 
     def is_empty(self):
         if self.red + self.green + self.white + self.black == 0: return True
+        else: return False
     
 
 
@@ -46,9 +47,16 @@ class Record():
     def last(self):
         if len(self.entries) > 0:
             return(self.entries[-1])
+    
+    def second_last(self):
+        if len(self.entries) > 1:
+            return(self.entries[-2])
             
     def len(self):
         return(len(self.entries))
+        
+    def chop(self):
+        self.entries.remove(self.entries[-1])
 
 
 
