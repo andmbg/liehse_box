@@ -22,7 +22,38 @@ BOUNCETIME = 0.2 # seconds
 DELAY = 0.2
 DEBUGLEVEL = logging.INFO
 
+record = buttons.Record()
+listener = 0
 
+def new_participant():
+    global record
+    record = buttons.Record()
+    global start_time
+    start_time = time.time()
+    
+    # setup single logs for debouncing (these don't end up in the result):
+    global black_debouncelog
+    global green_debouncelog
+    global red_debouncelog
+    global white_debouncelog
+    black_debouncelog = [("black", timestamp(), 0)]
+    green_debouncelog = [("green", timestamp(), 0)]
+    red_debouncelog   = [("red", timestamp(), 0)]
+    white_debouncelog = [("white", timestamp(), 0)]
+
+    # inbox filters parasitic keylogs, returns chords
+    global inbox
+    inbox = { 'red': 0,
+              'green': 0,
+              'white': 0,
+              'black': 0 }
+   
+
+    
+    
+def timestamp(): return time.time() - start_time
+
+    
 
 
 def schedule_set(logentry, delay = 0.2):
@@ -49,10 +80,10 @@ def send_chord(chord, timerID):
 def button_log(channel, log, this_time, this_state):
     # get time & on/off of the last entry:
     last_time, last_state = log[-1][1:3]
-    button = {14: "red",
+    button = {14: "black",
               15: "green",
-              18: "white",
-              25: "black"}[channel]
+              18: "red",
+              25: "white"}[channel]
     logentry = None
 
     # is this state different? log it:
@@ -68,25 +99,39 @@ def button_log(channel, log, this_time, this_state):
     return(logentry)
 
 
+#### diagnostic function of black button for debugging
+#def black_callback(channel):
+#    # hack against bouncing:
+#    time.sleep(.01)
+#    state = 1 - GPIO.input(channel)
+#
+#    if state == 0: return
+#
+#    global record
+#    pprint.pprint(record.string())
+####
 
-def red_callback(channel):
+def black_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    logging.debug("( ,  ,  , %i)" % state)
+    logging.debug("(%i,  ,  ,  )" % state)
     # returns (button, time, state):
-    logentry = button_log(channel, red_debouncelog, timestamp(), state)
+    logentry = button_log(channel,
+                          black_debouncelog,
+                          timestamp(),
+                          1 - GPIO.input(channel))
+    
     if logentry == None: return
-    
-    red_debouncelog.append(logentry)
+
+    black_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
-    
-            
+
 def green_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("( ,  , %i,  )" % state)
+    logging.debug("( , %i,  ,  )" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
                           green_debouncelog,
@@ -98,11 +143,23 @@ def green_callback(channel):
     green_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
 
+def red_callback(channel):
+    # hack against bouncing:
+    time.sleep(.01)
+    state = 1 - GPIO.input(channel)
+    logging.debug("( ,  , %i,  )" % state)
+    # returns (button, time, state):
+    logentry = button_log(channel, red_debouncelog, timestamp(), state)
+    if logentry == None: return
+    
+    red_debouncelog.append(logentry)
+    schedule_set(logentry, delay = DELAY)
+
 def white_callback(channel):
     # hack against bouncing:
     time.sleep(.01)
     state = 1 - GPIO.input(channel)
-    print("( , %i,  ,  )" % state)
+    logging.debug("( ,  ,  , %i)" % state)
     # returns (button, time, state):
     logentry = button_log(channel,
                           white_debouncelog,
@@ -113,15 +170,7 @@ def white_callback(channel):
     white_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
 
-def black_callback(channel):
-    # hack against bouncing:
-    time.sleep(.01)
-    state = 1 - GPIO.input(channel)
 
-    if state == 0: return
-
-    global record
-    pprint.pprint(record.string())
 
 
 
@@ -155,6 +204,7 @@ def test_button_press(newentry):
     record.add_entry(newentry)
     logging.info(newentry.string())
     threading.Thread(target = led_redtick).start()
+    print(record.testcode([1,0,14]))
         
 
 
@@ -194,28 +244,19 @@ def led_redtick(duration = 0.1):
 
 
 
-# ===================
+# =====================================================================
 #  Beginning of app:
-# -------------------
+# ---------------------------------------------------------------------
 
-
-
-
-record = buttons.Record()
-
-
+# setup logging once per starting the box:
 session_date = time.localtime()
 logfilename = "log/%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d.log" % ( \
     session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
     ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
     session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
-    
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                    filename=logfilename, filemode='w')
-logging.info("Log start.")
-
-start_time = time.time()
-def timestamp(): return time.time() - start_time
+                        filename=logfilename, filemode='w')
+logging.info("Log %s start.\n-----------------------" % logfilename[4:])
 
 
 
@@ -224,48 +265,24 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 
 
-# setup pins to listen to:
-pins = {
-    14: {'name': 'red'},
-    15: {'name': 'green'},
-    18: {'name': 'white'},
-    25: {'name': 'black'}
-    }
-    
+
 # How RPi numbers GPIO pins. Consider BOARD as alternative:
 GPIO.setmode(GPIO.BCM)
 
+pins = {
+    14: {'name': 'black'},
+    15: {'name': 'green'},
+    18: {'name': 'red'},
+    25: {'name': 'white'}
+    }
 for pin in pins:
     GPIO.setup(pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
-
-
-
-# setup single logs for debouncing (these don't end up in the result):
-red_debouncelog   = [("red", timestamp(), 0)]
-green_debouncelog = [("green", timestamp(), 0)]
-white_debouncelog = [("white", timestamp(), 0)]
-black_debouncelog = [("black", timestamp(), 0)]
-
-
-
-# inbox filters parasitic keylogs, returns chords
-inbox = { 'red': 0,
-          'green': 0,
-          'white': 0,
-          'black': 0 }
-
-# only the last button press's Timer should be relevant:
-listener = 0
-
-
-    
-
 
 # Set up listeners on GPIOs:
 GPIO.add_event_detect(14,
                       GPIO.BOTH,
                       bouncetime = 20,
-                      callback = red_callback)
+                      callback = black_callback)
 
 GPIO.add_event_detect(15,
                       GPIO.BOTH,
@@ -275,12 +292,16 @@ GPIO.add_event_detect(15,
 GPIO.add_event_detect(18,
                       GPIO.BOTH,
                       bouncetime = 20,
-                      callback = white_callback)
+                      callback = red_callback)
 
 GPIO.add_event_detect(25,
                       GPIO.BOTH,
                       bouncetime = 20,
-                      callback = black_callback)
+                      callback = white_callback)
+
+
+
+new_participant()
 
 
 
@@ -292,15 +313,6 @@ def index():
 def on_connect():
     payload = dict(data = "Connected")
     emit("log", payload, broadcast = True)
-
-
-
-# ========================================================================
-
-# session start:
-
-
-
 
 if __name__ == "__main__":
     socketio.run(app)

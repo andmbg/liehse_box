@@ -14,22 +14,25 @@ class Record_entry():
         assert type(timestamp) is float, "timestamp must be float."
         
         self.timestamp = timestamp
-        self.red       = chord['red']
-        self.green     = chord['green']
-        self.white     = chord['white']
         self.black     = chord['black']
-    
-        self.number_pressed = self.red + \
+        self.green     = chord['green']
+        self.red       = chord['red']
+        self.white     = chord['white']
+
+        self.number_pressed = self.black + \
                               self.green + \
-                              self.white + \
-                              self.black
+                              self.red + \
+                              self.white
         
     def string(self):
         return("%f: [%i, %i, %i, %i]" % (self.timestamp, self.black, self.green, self.red, self.white))
 
     def is_empty(self):
-        if self.red + self.green + self.white + self.black == 0: return True
+        if self.black + self.green + self.red + self.white == 0: return True
         else: return False
+    
+    def code(self):
+        return(self.black + 2*self.green + 4*self.red + 8*self.white)
     
 
 
@@ -57,6 +60,15 @@ class Record():
         
     def chop(self):
         self.entries.remove(self.entries[-1])
+    
+    def testcode(self, codeseq):
+        if len(codeseq) > len(self.entries): return
+        
+        reference = [ i.code() for i in self.entries[-len(codeseq):] ]
+        print("%s -- %s" % (reference, codeseq))
+        return(codeseq == reference)
+        
+
 
 
 
