@@ -11,64 +11,17 @@ import pprint
 import blinkt
 from math import sin, pi
 import event_triggers
-from config import record
+
+
+# some preliminary settings
+
 
 # B. is for direct mechanical debouncing, replacing the insufficient
 # built-in mechanism. D. is for dealing with parasitic keylogs.
 BOUNCETIME = 0.2 # seconds
 DELAY = 0.2
+DEBUGLEVEL = logging.INFO
 
-
-
-logging.basicConfig(level = logging.DEBUG,
-                    format='(%(threadName)-10s) %(message)s',)
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app)
-
-
-# setup pins to listen to:
-pins = {
-    14: {'name': 'red'},
-    15: {'name': 'green'},
-    18: {'name': 'white'},
-    25: {'name': 'black'}
-    }
-    
-# How RPi numbers GPIO pins. Consider BOARD as alternative:
-GPIO.setmode(GPIO.BCM)
-
-for pin in pins:
-    GPIO.setup(pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
-
-
-
-start_time = time.time()
-def timestamp(): return time.time() - start_time
-
-
-
-# setup single logs for debouncing (these don't end up in the result):
-red_debouncelog   = [("red", timestamp(), 0)]
-green_debouncelog = [("green", timestamp(), 0)]
-white_debouncelog = [("white", timestamp(), 0)]
-black_debouncelog = [("black", timestamp(), 0)]
-
-
-
-# inbox filters parasitic keylogs, returns chords
-inbox = { 'red': 0,
-          'green': 0,
-          'white': 0,
-          'black': 0 }
-
-# only the last button press's Timer should be relevant:
-listener = 0
-
-# our log:
-#record = buttons.Record()
-#logging.debug("variable 'record' set up as %s" % type(record))
 
 
 
@@ -81,14 +34,14 @@ def schedule_set(logentry, delay = 0.2):
     listener = timerID
     threading.Timer(delay, send_chord, [inbox, timerID]).start()
 
-# form Record_entry from inbox chord, add to the record, check record
-# to trigger events (success, others):
+# form Record_entry from inbox chord. Check if it should trigger events,
+# then add to record.
 def send_chord(chord, timerID):
     global record
     if listener == timerID:
         newentry = buttons.Record_entry(timestamp(), chord)
         logging.debug("send_chord(): %s" % newentry.string())
-        event_triggers.on_entry(newentry) # check for event triggers
+        on_entry(newentry) # check for event triggers
                
 
 
@@ -173,6 +126,136 @@ def black_callback(channel):
 
 
 
+# =================================
+#  Handling newly recorded entries
+# ---------------------------------
+
+
+# whenever a new Record_entry is sent to record:
+def on_entry(newentry):
+    logging.debug("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
+    
+    test_button_press(newentry) # on any button or chord above delay threshold
+    test_full_chord(newentry) # on red + green + white
+
+
+
+#  Tests:
+# --------
+
+def test_button_press(newentry):
+    global record
+    # was it just a below-threshold short press [0,0,0,0]? Remove from log.
+    lastentry = record.last()
+    logging.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
+        
+    if newentry.is_empty():
+        if lastentry == None or lastentry.is_empty(): return
+    
+    record.add_entry(newentry)
+    logging.info(newentry.string())
+    threading.Thread(target = led_redtick).start()
+        
+
+
+def test_full_chord(newentry):
+    logging.debug("test_full_chord: last = %s" % newentry.string())
+    if newentry.red and newentry.green and newentry.white:
+        logging.debug("test_full_chord: red=%i, green=%i, white=%i" % \
+            (newentry.red, newentry.green, newentry.white))
+        threading.Thread(target = led_bluenote, args = (1,)).start()
+        
+    
+    
+
+
+#  Outcomes:
+# -----------
+
+def led_bluenote(duration = 1):
+    logging.debug("led_bluenote(%f)" % duration)
+    time.sleep(0.1)
+    blinkt.set_pixel(4, 0,0,255)
+    blinkt.show()
+    time.sleep(duration)
+    blinkt.set_pixel(4, 0,0,0)
+    blinkt.show()
+
+
+
+def led_redtick(duration = 0.1):
+    logging.debug("led_redtick()")
+    blinkt.set_pixel(0, 255,0,0)
+    blinkt.show()
+    time.sleep(duration)
+    blinkt.set_pixel(0, 0,0,0)
+    blinkt.show()
+
+
+
+
+# ===================
+#  Beginning of app:
+# -------------------
+
+
+
+
+record = buttons.Record()
+
+
+session_date = time.localtime()
+logfilename = "log/%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d.log" % ( \
+    session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
+    ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
+    session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
+    
+logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
+                    filename=logfilename, filemode='w')
+logging.info("Log start.")
+
+start_time = time.time()
+def timestamp(): return time.time() - start_time
+
+
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app)
+
+
+# setup pins to listen to:
+pins = {
+    14: {'name': 'red'},
+    15: {'name': 'green'},
+    18: {'name': 'white'},
+    25: {'name': 'black'}
+    }
+    
+# How RPi numbers GPIO pins. Consider BOARD as alternative:
+GPIO.setmode(GPIO.BCM)
+
+for pin in pins:
+    GPIO.setup(pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
+
+
+
+# setup single logs for debouncing (these don't end up in the result):
+red_debouncelog   = [("red", timestamp(), 0)]
+green_debouncelog = [("green", timestamp(), 0)]
+white_debouncelog = [("white", timestamp(), 0)]
+black_debouncelog = [("black", timestamp(), 0)]
+
+
+
+# inbox filters parasitic keylogs, returns chords
+inbox = { 'red': 0,
+          'green': 0,
+          'white': 0,
+          'black': 0 }
+
+# only the last button press's Timer should be relevant:
+listener = 0
 
 
     
@@ -209,6 +292,14 @@ def index():
 def on_connect():
     payload = dict(data = "Connected")
     emit("log", payload, broadcast = True)
+
+
+
+# ========================================================================
+
+# session start:
+
+
 
 
 if __name__ == "__main__":

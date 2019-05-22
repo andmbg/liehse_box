@@ -6,9 +6,11 @@ import time
 
 blinkt.set_brightness(0.1)
 
+
+
 # whenever a new Record_entry is sent to record:
 def on_entry(newentry):
-	logging.debug("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
+	#logger.warning("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
 	
 	test_button_press(newentry) # on any button or chord
 	test_full_chord(newentry) # on red + green + white
@@ -22,7 +24,7 @@ def test_button_press(newentry):
 	global record
 	# was it just a below-threshold short press [0,0,0,0]? Remove from log.
 	lastentry = record.last()
-	logging.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
+	logger.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
 		
 	if newentry.is_empty():
 		if lastentry == None or lastentry.is_empty(): return
@@ -33,10 +35,10 @@ def test_button_press(newentry):
 
 
 def test_full_chord(newentry):
-	logging.debug("test_full_chord: last = %s" % newentry.string())
+	#logger.debug("test_full_chord: last = %s" % newentry.string())
 	if newentry.red and newentry.green and newentry.white:
-		logging.debug("test_full_chord: red=%i, green=%i, white=%i" % \
-			(newentry.red, newentry.green, newentry.white))
+		#logger.debug("test_full_chord: red=%i, green=%i, white=%i" % \
+		#	(newentry.red, newentry.green, newentry.white))
 		threading.Thread(target = led_bluenote, args = (1,)).start()
 		
 	
@@ -47,7 +49,7 @@ def test_full_chord(newentry):
 # -----------
 
 def led_bluenote(duration = 1):
-	logging.debug("led_bluenote(%f)" % duration)
+	#logger.debug("led_bluenote(%f)" % duration)
 	time.sleep(0.1)
 	blinkt.set_pixel(4, 0,0,255)
 	blinkt.show()
@@ -58,7 +60,7 @@ def led_bluenote(duration = 1):
 
 
 def led_redtick(duration = 0.1):
-	logging.debug("led_redtick()")
+	#logger.debug("led_redtick()")
 	blinkt.set_pixel(0, 255,0,0)
 	blinkt.show()
 	time.sleep(duration)
