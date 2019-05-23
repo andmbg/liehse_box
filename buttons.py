@@ -25,7 +25,7 @@ class Record_entry():
         return(self.black + self.green + self.red + self.white)
         
     def string(self):
-        return("%f: [%i, %i, %i, %i] tgt: %s" % \
+        return("%f [%i, %i, %i, %i] tgt: %s" % \
             (self.timestamp, \
              self.black, self.green, self.red, self.white, \
              self.target_chord))
