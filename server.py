@@ -264,7 +264,7 @@ def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
         logging.info("starting new session")
-        threading.Thread(target = led_matrix, args = ("led patterns/police",0,0,255,4)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/police",0,0,255,1)).start()
         new_participant()
         
 
@@ -279,6 +279,7 @@ def test_target_chord(newentry, interval = 30):
         if newentry.code() == target_chord:
             logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
             logging.info("SUCCESS")
+            threading.Thread(target = led_success).start()
             return
     
     else:
@@ -291,12 +292,15 @@ def test_target_chord(newentry, interval = 30):
                     target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.values()) ][0]
                     logging.debug("test_target_chord: new target_chord: %s" % target_chord)
                     logging.info("test_target_chord: SUCCESS")
+                    threading.Thread(target = led_success).start()
                 else:
                     #sample from untested
                     logging.debug("test_target_chord: setting random untested 2chord. CL: %s" % checklist)
                     target_chord = random.sample([i[0] for i in checklist.items() if i[1] == None ], 1)[0]
                     logging.debug("test_target_chord: new target_chord: %s" % target_chord)
-                    logging.info("test_tarrget_chord: SUCCESS")
+                    logging.info("test_target_chord: SUCCESS")
+                    threading.Thread(target = led_success).start()
+
 
         # interval not up:
         else:
@@ -349,7 +353,11 @@ def led_matrix(infile, r,g,b, times):
     blinkt.show()
 
 
-                
+def led_success():
+    led_matrix("led patterns/police", 255,  0,  0, 1)
+    led_matrix("led patterns/police", 255, 64,  0, 1)
+    led_matrix("led patterns/police",   0,255,  0, 1)
+    led_matrix("led patterns/police",   0,  0,255, 1)
             
         
 
