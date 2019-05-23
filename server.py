@@ -286,21 +286,24 @@ def test_target_chord(newentry, interval = 30):
         # interval up:
         if newentry.timestamp > interval:
             if newentry.code() in checklist.keys():
+                
                 if sum([ i == None for i in checklist.values() ]) == 0:
-                    # oldest
+                    # checklist full during interval; set oldest 2chord as target:
                     logging.debug("test_target_chord: setting oldest 2chord. CL: %s" % checklist)
                     target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.values()) ][0]
                     logging.debug("test_target_chord: new target_chord: %s" % target_chord)
-                    logging.info("test_target_chord: SUCCESS")
-                    threading.Thread(target = led_success).start()
+                    ## success at bottom
+                    
+                elif checklist[newentry.code()] == None:
+                    # non-full checklist and now hitting a vacant 2chord; set target to this:
+                    logging.debug("test_target_chord: target_chord == None & hitting vacant target chord.")
+                    target_chord = newentry.code()
+                    ## success at bottom
+                    
                 else:
-                    #sample from untested
-                    logging.debug("test_target_chord: setting random untested 2chord. CL: %s" % checklist)
-                    target_chord = random.sample([i[0] for i in checklist.items() if i[1] == None ], 1)[0]
-                    logging.debug("test_target_chord: new target_chord: %s" % target_chord)
-                    logging.info("test_target_chord: SUCCESS")
-                    threading.Thread(target = led_success).start()
-
+                    # non-full checklist and now hitting a previously tested 2chord: ignore:
+                    logging.debug("test_target_chord: hitting pre-tested chord; \
+                                   no success, keeping target_chord = None. %s" % checklist)
 
         # interval not up:
         else:
@@ -308,6 +311,11 @@ def test_target_chord(newentry, interval = 30):
             if newentry.code() in checklist.keys():
                 checklist[newentry.code()] = newentry.timestamp
                 logging.debug("test_target_chord: update checklist: %s" % checklist)
+        
+        # did the above tests yield a target? then SUCCESS
+        if newentry.code() == target_chord:
+            logging.info("SUCCESS")
+            threading.Thread(target = led_success).start()
             
     
     
