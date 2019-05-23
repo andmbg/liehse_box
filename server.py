@@ -228,7 +228,9 @@ def test_button_press(newentry):
     lastentry = record.last()
 
     if newentry.is_empty():
-        if lastentry == None or lastentry.is_empty(): return
+        if lastentry == None or lastentry.is_empty():
+            logging.debug("%f keypress too short, not logged" % newentry.timestamp)
+            return
 
     record.add_entry(newentry)
     logging.debug("%s -> added to record" % newentry.string())
@@ -388,38 +390,16 @@ socketio = SocketIO(app)
 # How RPi numbers GPIO pins. Consider BOARD as alternative:
 GPIO.setmode(GPIO.BCM)
 
+# set up pins and callback functions:
 pins = {
-    14: {'name': 'black'},
-    15: {'name': 'green'},
-    18: {'name': 'red'},
-    25: {'name': 'white'}
-    }
-for pin in pins:
-    GPIO.setup(pin, GPIO.IN, pull_up_down = GPIO.PUD_UP)
-
-# Set up listeners on GPIOs:
-GPIO.add_event_detect(14,
-                      GPIO.BOTH,
-                      bouncetime = 20,
-                      callback = black_callback)
-
-GPIO.add_event_detect(15,
-                      GPIO.BOTH,
-                      bouncetime = 20,
-                      callback = green_callback)
-
-GPIO.add_event_detect(18,
-                      GPIO.BOTH,
-                      bouncetime = 20,
-                      callback = red_callback)
-
-GPIO.add_event_detect(25,
-                      GPIO.BOTH,
-                      bouncetime = 20,
-                      callback = white_callback)
-
-
-
+    14: black_callback,
+    15: green_callback,
+    18: red_callback,
+    25: white_callback }
+    
+for pin in pins.items():
+    GPIO.setup(pin[0], GPIO.IN, pull_up_down = GPIO.PUD_UP)
+    GPIO.add_event_detect(pin[0], GPIO.BOTH, callback = pin[1], bouncetime = 20)
 
 new_participant()
 
