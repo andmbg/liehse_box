@@ -21,7 +21,7 @@ from os import system
 # built-in mechanism. D. is for dealing with parasitic keylogs.
 BOUNCETIME = 0.2 # seconds
 DELAY = 0.2
-DEBUGLEVEL = logging.INFO
+DEBUGLEVEL = logging.DEBUG
 
 record = buttons.Record()
 listener = 0
@@ -38,18 +38,21 @@ def new_participant():
         session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
     global record
     record = buttons.Record()
-    global start_time
-    start_time = time.time()
+
+    global session_start_time
+    session_start_time = time.time()
+    global trial_start_time
+    trial_start_time = session_start_time
     
     # setup single logs for debouncing (these don't end up in the result):
     global black_debouncelog
     global green_debouncelog
     global red_debouncelog
     global white_debouncelog
-    black_debouncelog = [("black", timestamp(), 0)]
-    green_debouncelog = [("green", timestamp(), 0)]
-    red_debouncelog   = [("red", timestamp(), 0)]
-    white_debouncelog = [("white", timestamp(), 0)]
+    black_debouncelog = [("black", timestamp("session"), 0)]
+    green_debouncelog = [("green", timestamp("session"), 0)]
+    red_debouncelog   = [("red", timestamp("session"), 0)]
+    white_debouncelog = [("white", timestamp("session"), 0)]
 
     # inbox filters parasitic keylogs, returns chords
     global inbox
@@ -63,11 +66,20 @@ def new_participant():
     target_chord = None
     global checklist
     checklist = {9: None, 10: None, 12: None}
+    
+    print("Starting session ", sessionid)
    
 
     
     
-def timestamp(): return time.time() - start_time
+def timestamp(context):
+    global session_start_time
+    assert context in ["session", "trial"], "Call timestamp() with argument context = 'session' or 'trial'."
+    if context == "session":
+        return time.time() - session_start_time
+    if context == "trial":
+        return time.time() - trial_start_time
+    
 
     
 
@@ -86,7 +98,7 @@ def schedule_set(logentry, delay = 0.2):
 def send_chord(chord, timerID):
     global record
     if listener == timerID:
-        newentry = buttons.Record_entry(timestamp(), chord)
+        newentry = buttons.Record_entry(timestamp("trial"), chord)
         logging.debug("send_chord(): %s" % newentry.string())
         on_entry(newentry) # check for event triggers
                
@@ -135,7 +147,7 @@ def black_callback(channel):
     # returns (button, time, state):
     logentry = button_log(channel,
                           black_debouncelog,
-                          timestamp(),
+                          timestamp("trial"),
                           1 - GPIO.input(channel))
     
     if logentry == None: return
@@ -151,7 +163,7 @@ def green_callback(channel):
     # returns (button, time, state):
     logentry = button_log(channel,
                           green_debouncelog,
-                          timestamp(),
+                          timestamp("trial"),
                           1 - GPIO.input(channel))
     
     if logentry == None: return
@@ -165,7 +177,7 @@ def red_callback(channel):
     state = 1 - GPIO.input(channel)
     logging.debug("( ,  , %i,  )" % state)
     # returns (button, time, state):
-    logentry = button_log(channel, red_debouncelog, timestamp(), state)
+    logentry = button_log(channel, red_debouncelog, timestamp("trial"), state)
     if logentry == None: return
     
     red_debouncelog.append(logentry)
@@ -179,7 +191,7 @@ def white_callback(channel):
     # returns (button, time, state):
     logentry = button_log(channel,
                           white_debouncelog,
-                          timestamp(),
+                          timestamp("trial"),
                           1 - GPIO.input(channel))
     if logentry == None: return
 
@@ -227,13 +239,15 @@ def test_button_press(newentry):
     
     record.add_entry(newentry)
     logging.debug("button pressed: %s" % newentry.string())
-    #threading.Thread(target = led_redtick).start()
 
 def test_first(newentry):
-    global start_time
-    if record.len() == 1:
-        start_time = time.time()
-        record.entries[0].timestamp = start_time
+    global session_start_time
+    global trial_start_time
+    if record.len() == 1: # if this is the first entry
+        # set the trial timer for interval; needs to be different from session
+        # timer, as time passes between box reset and trial start
+        trial_start_time = time.time()
+        record.entries[0].timestamp = timestamp("trial")
         logging.debug("registered first press in session")
 
 def test_flush_record(newentry):
@@ -259,12 +273,12 @@ def test_target_chord(newentry, interval = 30):
     global record
     global target_chord
     global checklist
-    print("target: %s  |  entry: %s  |  time: %f" % (target_chord, newentry.code(), newentry.timestamp))
-    print(newentry.timestamp)
+    logging.debug("test_target_chord: newentry: %s | target: %s | time: %4f" % (newentry.code(), target_chord, newentry.timestamp))
     
     if target_chord in checklist.keys():
         if newentry.code() == target_chord:
-            print("Success")
+            logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
+            logging.info("SUCCESS")
             return
     
     else:
@@ -273,16 +287,23 @@ def test_target_chord(newentry, interval = 30):
             if newentry.code() in checklist.keys():
                 if sum([ i == None for i in checklist.values() ]) == 0:
                     # oldest
-                    target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.items()) ][0]
-                    print("Set target_chord to oldest; Success!")
+                    logging.debug("test_target_chord: setting oldest 2chord. CL: %s" % checklist)
+                    target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.values()) ][0]
+                    logging.debug("test_target_chord: new target_chord: %s" % target_chord)
+                    logging.info("test_target_chord: SUCCESS")
                 else:
                     #sample from untested
+                    logging.debug("test_target_chord: setting random untested 2chord. CL: %s" % checklist)
                     target_chord = random.sample([i[0] for i in checklist.items() if i[1] == None ], 1)[0]
+                    logging.debug("test_target_chord: new target_chord: %s" % target_chord)
+                    logging.info("test_tarrget_chord: SUCCESS")
 
         # interval not up:
-        elif newentry.code() in checklist.keys():
-            checklist[newentry.code()] = newentry.timestamp
-            print("interval running, updating checklist... %s" % checklist)
+        else:
+            logging.debug("test_target_chord: interval running.")
+            if newentry.code() in checklist.keys():
+                checklist[newentry.code()] = newentry.timestamp
+                logging.debug("test_target_chord: update checklist: %s" % checklist)
             
     
     
