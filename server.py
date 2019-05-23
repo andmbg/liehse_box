@@ -145,7 +145,7 @@ def black_callback(channel):
     time.sleep(.01)
     ts = timestamp("trial")
     state = 1 - GPIO.input(channel)
-    logging.debug("%f (%i,  ,  ,  )" % (ts, state))
+    logging.debug("%f (%i,  ,  ,  ) black" % (ts, state))
     # returns (button, time, state):
     logentry = button_log(channel, black_debouncelog, ts, state)
     if logentry == None: return
@@ -158,7 +158,7 @@ def green_callback(channel):
     time.sleep(.01)
     ts = timestamp("trial")
     state = 1 - GPIO.input(channel)
-    logging.debug("%f ( , %i,  ,  )" % (ts, state))
+    logging.debug("%f ( , %i,  ,  ) green" % (ts, state))
     # returns (button, time, state):
     logentry = button_log(channel, green_debouncelog, ts, state)
     if logentry == None: return
@@ -171,7 +171,7 @@ def red_callback(channel):
     time.sleep(.01)
     ts = timestamp("trial")
     state = 1 - GPIO.input(channel)
-    logging.debug("%f ( ,  , %i,  )" % (ts, state))
+    logging.debug("%f ( ,  , %i,  ) red" % (ts, state))
     # returns (button, time, state):
     logentry = button_log(channel, red_debouncelog, ts, state)
     if logentry == None: return
@@ -184,7 +184,7 @@ def white_callback(channel):
     time.sleep(.01)
     ts = timestamp("trial")
     state = 1 - GPIO.input(channel)
-    logging.debug("%f ( ,  ,  , %i)" % (ts, state))
+    logging.debug("%f ( ,  ,  , %i) white" % (ts, state))
     # returns (button, time, state):
     logentry = button_log(channel, white_debouncelog, ts, state)
     if logentry == None: return
@@ -260,7 +260,7 @@ def test_flush_record(newentry):
 def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
-        logging.info("starting new session")
+        logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         threading.Thread(target = led_matrix, args = ("led patterns/police",0,0,255,1)).start()
         new_participant()
         
@@ -405,7 +405,8 @@ new_participant()
 
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        filename=logfilename, filemode='w')
+                        filename=logfilename, filemode='w'
+                        )
 logging.info("Log %s start.\n-----------------------" % sessionid)
 
 
