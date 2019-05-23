@@ -19,10 +19,8 @@ class Record_entry():
         self.red       = chord['red']
         self.white     = chord['white']
 
-        self.number_pressed = self.black + \
-                              self.green + \
-                              self.red + \
-                              self.white
+    def number_pressed(self):
+        return(self.black + self.green + self.red + self.white)
         
     def string(self):
         return("%f: [%i, %i, %i, %i]" % (self.timestamp, self.black, self.green, self.red, self.white))
@@ -68,6 +66,8 @@ class Record():
     def chop(self, n=1):
         self.entries = self.entries[:-n]
     
+    # test if the Record ends on the codes given in codeseq
+    # used for manipulating the box (new session etc.)
     def testcode(self, codeseq):
         if len(codeseq) > len(self.entries): return
         reference = [ i.code() for i in self.entries[-len(codeseq):] ]

@@ -11,6 +11,7 @@ import pprint
 import blinkt
 from math import sin, pi
 import event_triggers
+from os import system
 
 
 # some preliminary settings
@@ -24,7 +25,8 @@ DEBUGLEVEL = logging.INFO
 
 record = buttons.Record()
 listener = 0
-#sessionid = ""
+target_chord = None # anything outside 1:15
+checklist = {9: None, 10: None, 12: None}
 
 def new_participant():
     # setup logging once per starting the box:
@@ -55,6 +57,12 @@ def new_participant():
               'green': 0,
               'white': 0,
               'black': 0 }
+    global listener
+    listener = 0
+    global target_chord
+    target_chord = None
+    global checklist
+    checklist = {9: None, 10: None, 12: None}
    
 
     
@@ -196,6 +204,7 @@ def on_entry(newentry):
     test_first(newentry)
     test_flush_record(newentry)
     test_new_session(newentry)
+    test_target_chord(newentry, interval = 5)
 
 
 
@@ -217,14 +226,14 @@ def test_button_press(newentry):
         if lastentry == None or lastentry.is_empty(): return
     
     record.add_entry(newentry)
-    logging.info(newentry.string())
+    logging.debug("button pressed: %s" % newentry.string())
     #threading.Thread(target = led_redtick).start()
 
 def test_first(newentry):
     global start_time
     if record.len() == 1:
         start_time = time.time()
-        record.entries[0].timestamp = time.time()
+        record.entries[0].timestamp = start_time
         logging.debug("registered first press in session")
 
 def test_flush_record(newentry):
@@ -235,19 +244,46 @@ def test_flush_record(newentry):
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(record.csv())
         logging.info("wrote record to records/%s.record" % sessionid)
-        threading.Thread(target = led_matrix, args = (ledmat_knight,255,0,0,2)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/knight",255,0,0,2)).start()
 
 def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
         logging.info("starting new session")
-        threading.Thread(target = led_matrix, args = (ledmat_police,0,0,255,4)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/police",0,0,255,4)).start()
         new_participant()
         
 
 # if interval (30s?) has elapsed and newentry contains white, success.
-def test_post_interval_white(newentry, interval):
-    pass
+def test_target_chord(newentry, interval = 30):
+    global record
+    global target_chord
+    global checklist
+    print("target: %s  |  entry: %s  |  time: %f" % (target_chord, newentry.code(), newentry.timestamp))
+    print(newentry.timestamp)
+    
+    if target_chord in checklist.keys():
+        if newentry.code() == target_chord:
+            print("Success")
+            return
+    
+    else:
+        # interval up:
+        if newentry.timestamp > interval:
+            if newentry.code() in checklist.keys():
+                if sum([ i == None for i in checklist.values() ]) == 0:
+                    # oldest
+                    target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.items()) ][0]
+                    print("Set target_chord to oldest; Success!")
+                else:
+                    #sample from untested
+                    target_chord = random.sample([i[0] for i in checklist.items() if i[1] == None ], 1)[0]
+
+        # interval not up:
+        elif newentry.code() in checklist.keys():
+            checklist[newentry.code()] = newentry.timestamp
+            print("interval running, updating checklist... %s" % checklist)
+            
     
     
 
@@ -276,20 +312,22 @@ def led_redtick(duration = 0.1):
     
     
 
-def led_matrix(mat, r,g,b, times):
+def led_matrix(infile, r,g,b, times):
+    contents = open(infile).read()
+    mat = [ item.split() for item in contents.split('\n')[:-1] ]
+    
     for i in range(times):
         for line in mat:
             blinkt.clear()
             for column in range(len(line)):
                 val = int(line[column])
-                print(r*val,g*val,b*val, line[column])
                 blinkt.set_pixel(column, r*val,g*val,b*val)
             blinkt.show()
             time.sleep(0.01)
         blinkt.clear()
     blinkt.show()
 
-                
+
                 
             
         
@@ -346,12 +384,6 @@ GPIO.add_event_detect(25,
                       callback = white_callback)
 
 
-def matrix(infile):
-    contents = open(infile).read()
-    return [item.split() for item in contents.split('\n')[:-1]]
-    
-ledmat_police = matrix("led patterns/police")
-ledmat_knight = matrix("led patterns/knight")
 
 
 new_participant()
