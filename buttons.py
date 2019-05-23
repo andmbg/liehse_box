@@ -4,7 +4,7 @@ Chord = collections.namedtuple("Chord",
                                "timestamp black green red white")
 
 class Record_entry():
-    def __init__(self, timestamp, chord):
+    def __init__(self, timestamp, chord, target_chord):
         # check arguments:
         #assert type(btn_states) is list and \
         #           len(btn_states) == 4 and \
@@ -18,21 +18,24 @@ class Record_entry():
         self.green     = chord['green']
         self.red       = chord['red']
         self.white     = chord['white']
+        
+        self.target_chord = target_chord
 
     def number_pressed(self):
         return(self.black + self.green + self.red + self.white)
         
     def string(self):
-        return("%f: [%i, %i, %i, %i]" % (self.timestamp, self.black, self.green, self.red, self.white))
+        return("%f: [%i, %i, %i, %i] tgt: %s" % \
+            (self.timestamp, \
+             self.black, self.green, self.red, self.white, \
+             self.target_chord))
 
     def csv(self):
-        return("%f, %i, %i, %i, %i" % (self.timestamp, self.black, self.green, self.red, self.white))
+        return("%f, %i, %i, %i, %i, %s" % (self.timestamp, self.black, self.green, self.red, self.white, self.target_chord))
         
         
-    def is_empty(self):
-        if self.black + self.green + self.red + self.white == 0: return True
-        else: return False
-    
+    def is_empty(self): return self.black + self.green + self.red + self.white == 0
+ 
     def code(self):
         return(self.black + 2*self.green + 4*self.red + 8*self.white)
         

@@ -98,7 +98,7 @@ def schedule_set(logentry, delay = 0.2):
 def send_chord(chord, timerID):
     global record
     if listener == timerID:
-        newentry = buttons.Record_entry(timestamp("trial"), chord)
+        newentry = buttons.Record_entry(timestamp("trial"), chord, target_chord)
         logging.debug("send_chord(): %s" % newentry.string())
         on_entry(newentry) # check for event triggers
                
@@ -210,8 +210,8 @@ def on_entry(newentry):
     logging.debug("on_entry() record length: %s | newentry: %s" % (record.len(), newentry.string()))
     
     # on any button or chord above delay threshold
-    # THIS IS WHERE WE LOG CHORDS!
-    test_button_press(newentry)
+    test_button_press(newentry)  # THIS IS WHERE WE LOG CHORDS!
+
 
     test_first(newentry)
     test_flush_record(newentry)
@@ -232,11 +232,10 @@ def on_entry(newentry):
 def test_button_press(newentry):
     # was it just a below-threshold short press [0,0,0,0]? Remove from log.
     lastentry = record.last()
-    logging.debug("(test_button_press) last entry: %s | newentry: %s" % (lastentry, newentry.is_empty()))
-        
+
     if newentry.is_empty():
         if lastentry == None or lastentry.is_empty(): return
-    
+
     record.add_entry(newentry)
     logging.debug("button pressed: %s" % newentry.string())
 
@@ -255,8 +254,10 @@ def test_flush_record(newentry):
     global sessionid
     if record.testcode([9,11,9,13,9,0]):
         record.chop(6)
+        csv_record = "timecode, black, green, red, white, target_chord\n"
+        csv_record += record.csv()
         with open("records/%s.record" % sessionid, 'w') as f:
-            f.write(record.csv())
+            f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
         threading.Thread(target = led_matrix, args = ("led patterns/knight",255,0,0,2)).start()
 
@@ -291,6 +292,8 @@ def test_target_chord(newentry, interval = 30):
                     # checklist full during interval; set oldest 2chord as target:
                     logging.debug("test_target_chord: setting oldest 2chord. CL: %s" % checklist)
                     target_chord = [ i[0] for i in checklist.items() if i[1] == min(checklist.values()) ][0]
+                    # since this is already logged, correct target_chord column:
+                    record.entries[-1].target_chord = target_chord
                     logging.debug("test_target_chord: new target_chord: %s" % target_chord)
                     ## success at bottom
                     
@@ -298,12 +301,13 @@ def test_target_chord(newentry, interval = 30):
                     # non-full checklist and now hitting a vacant 2chord; set target to this:
                     logging.debug("test_target_chord: target_chord == None & hitting vacant target chord.")
                     target_chord = newentry.code()
+                    # since this is already logged, correct target_chord column:
+                    record.entries[-1].target_chord = target_chord
                     ## success at bottom
                     
                 else:
                     # non-full checklist and now hitting a previously tested 2chord: ignore:
-                    logging.debug("test_target_chord: hitting pre-tested chord; \
-                                   no success, keeping target_chord = None. %s" % checklist)
+                    logging.debug("test_target_chord: hitting pre-tested chord; no success, keeping target_chord = None. %s" % checklist)
 
         # interval not up:
         else:
