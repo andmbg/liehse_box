@@ -1,5 +1,5 @@
-from flask import Flask, render_template
-from flask_socketio import SocketIO, emit
+#from flask import Flask, render_template
+#from flask_socketio import SocketIO, emit
 import RPi.GPIO as GPIO
 import time
 import collections
@@ -68,6 +68,8 @@ def new_participant():
     target_chord = None
     global checklist
     checklist = {9: None, 10: None, 12: None}
+    global ui_mode
+    ui_mode = False
     
     print("Starting session ", sessionid)
    
@@ -209,6 +211,7 @@ def on_entry(newentry):
 
 
     test_first(newentry)
+    test_ui_mode(newentry)
     test_flush_record(newentry)
     test_new_session(newentry)
     test_target_chord(newentry, interval = 5)
@@ -255,7 +258,7 @@ def test_first(newentry):
 def test_flush_record(newentry):
     global record
     global sessionid
-    if record.testcode([9,11,9,13,9,0]) or record.testcode([9,13,9,11,9,0]):
+    if record.testcode([6,0,6,0,2,0]):
         record.chop(6)
         csv_record = "timecode, black, green, red, white, target_chord\n"
         csv_record += record.csv()
@@ -266,11 +269,19 @@ def test_flush_record(newentry):
 
 def test_new_session(newentry):
     global record
-    if record.testcode([6,0,6,0]):
+    if record.testcode([6,0,6,0,8,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
         new_participant()
-        
+
+def test_ui_mode(newentry):
+    global record
+    global ui_mode
+    if record.testcode([6,0,6,0]):
+        logging.info("%f enter user interface mode" % newentry.timestamp)
+        threading.Thread(target = led_ui_mode).start()
+        sound_ui_mode()
+        ui_mode = True
 
 # if interval (30s?) has elapsed and newentry contains white, success.
 def test_target_chord(newentry, interval = 30):
@@ -353,6 +364,11 @@ def led_matrix(infile, times):
 
 def led_success():
     led_matrix("led patterns/police", 1)
+    
+def led_ui_mode():
+    blinkt.clear()
+    blinkt.set_pixel(4, 50,0,0, .5)
+    blinkt.show()
             
             
 def sound_click():
@@ -361,6 +377,9 @@ def sound_click():
 
 def sound_success():
     system("aplay audio/schuettel2.wav")
+
+def sound_ui_mode():
+    system("aplay audio/loeffel.wav")
         
 
 
@@ -375,9 +394,9 @@ def sound_success():
 
 
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app)
+#app = Flask(__name__)
+#app.config['SECRET_KEY'] = 'secret!'
+#socketio = SocketIO(app)
 
 
 
