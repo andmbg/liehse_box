@@ -70,6 +70,8 @@ def new_participant():
     checklist = {9: None, 10: None, 12: None}
     global ui_mode
     ui_mode = False
+    global warmup
+    warmup = True
     
     print("Starting session ", sessionid)
    
@@ -204,17 +206,23 @@ def white_callback(channel):
 # Handling newly recorded entries
 # whenever a new Record_entry is sent to record:
 def on_entry(newentry):
-    logging.debug("%s -> on_entry() | record length: %s" % (newentry.string(), record.len()))
+    logging.debug("on_entry() | record length: %s" % record.len())
     
     # on any button or chord above delay threshold
     test_button_press(newentry)  # THIS IS WHERE WE LOG CHORDS!
 
-
-    test_first(newentry)
-    test_ui_mode(newentry)
-    test_flush_record(newentry)
-    test_new_session(newentry)
-    test_target_chord(newentry, interval = 5)
+    if warmup:
+        logging.debug("%f in warmup mode" % timestamp("session"))
+        test_demo_chord(newentry)
+    else:
+        test_ui_mode(newentry)
+        if ui_mode:
+            test_flush_record(newentry)
+            test_new_participant(newentry)
+            test_quit_ui_mode(newentry)
+        else:
+            test_first(newentry)
+            test_target_chord(newentry, interval = 5)
 
 
 
@@ -246,7 +254,6 @@ def test_button_press(newentry):
     
 
 def test_first(newentry):
-    global session_start_time
     global trial_start_time
     if record.len() == 1: # if this is the first entry
         # set the trial timer for interval; needs to be different from session
@@ -254,25 +261,45 @@ def test_first(newentry):
         trial_start_time = time.time()
         record.entries[0].timestamp = timestamp("trial")
         logging.debug("%f this has been the first logged press in this trial" % newentry.timestamp)
+        
+def test_demo_chord(newentry):
+    global record
+    global trial_start_time
+    global warmup
+    if record.testcode([8,0]):
+        time.sleep(2)
+        record.entries = []
+        warmup = False
+        threading.Thread(target = led_success).start()
+        sound_success()
 
 def test_flush_record(newentry):
     global record
     global sessionid
-    if record.testcode([6,0,6,0,2,0]):
+    if record.testcode([2,0]):
         record.chop(6)
         csv_record = "timecode, black, green, red, white, target_chord\n"
         csv_record += record.csv()
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
-        threading.Thread(target = led_matrix, args = ("led patterns/knight",1)).start()
+        led_matrix("led patterns/knight",1)
+        led_ui_mode()
 
-def test_new_session(newentry):
+def test_new_participant(newentry):
     global record
-    if record.testcode([6,0,6,0,8,0]):
+    if record.testcode([8,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
         new_participant()
+    
+def test_quit_ui_mode(newentry):
+    global record
+    if record.testcode([1,0]):
+        logging.info("%f exit user interface mode" % newentry.timestamp)
+        record.chop(2)
+        threading.Thread(target = led_off).start()
+        ui_mode = False
 
 def test_ui_mode(newentry):
     global record
@@ -345,6 +372,10 @@ def test_target_chord(newentry, interval = 30):
 # -----------
     
 
+def led_off():
+    blinkt.clear()
+    blinkt.show()
+
 def led_matrix(infile, times):
     contents = open(infile).read()
     mat = [ item.split() for item in contents.split('\n')[:-1] ]
@@ -372,14 +403,14 @@ def led_ui_mode():
             
             
 def sound_click():
-    system("aplay audio/Voltage.wav")
+    call(["aplay audio/Voltage.wav 2>/dev/null"], shell=True)
     
 
 def sound_success():
-    system("aplay audio/schuettel2.wav")
+    call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 def sound_ui_mode():
-    system("aplay audio/loeffel.wav")
+    call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
         
 
 
@@ -436,7 +467,7 @@ logging.info("Log %s start.\n-----------------------" % sessionid)
     #socketio.run(app)
 
 
-call(['espeak "Good morning doctor Falken. Shall we play a game?" 2>/dev/null'], shell=True)
+call(['aplay audio/wargames.wav 2>/dev/null'], shell=True)
 
 while True:
     time.sleep(1)
