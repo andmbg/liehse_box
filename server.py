@@ -12,6 +12,7 @@ import blinkt
 from math import sin, pi
 import event_triggers
 from os import system
+from subprocess import call
 
 
 # some preliminary settings
@@ -254,20 +255,20 @@ def test_first(newentry):
 def test_flush_record(newentry):
     global record
     global sessionid
-    if record.testcode([9,11,9,13,9,0]):
+    if record.testcode([9,11,9,13,9,0]) or record.testcode([9,13,9,11,9,0]):
         record.chop(6)
         csv_record = "timecode, black, green, red, white, target_chord\n"
         csv_record += record.csv()
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
-        threading.Thread(target = led_matrix, args = ("led patterns/flash",255,0,0,2)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/knight",1)).start()
 
 def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
-        threading.Thread(target = led_matrix, args = ("led patterns/flash",50,0,50,1)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
         new_participant()
         
 
@@ -336,7 +337,6 @@ def test_target_chord(newentry, interval = 30):
 def led_matrix(infile, times):
     contents = open(infile).read()
     mat = [ item.split() for item in contents.split('\n')[:-1] ]
-    print(mat)
     
     for i in range(times):
         for line in mat:
@@ -404,15 +404,21 @@ logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUG
 logging.info("Log %s start.\n-----------------------" % sessionid)
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+#@app.route("/")
+#def index():
+    #return render_template("index.html")
 
-@socketio.on("connect")
-def on_connect():
-    payload = dict(data = "Connected")
-    emit("log", payload, broadcast = True)
+#@socketio.on("connect")
+#def on_connect():
+    #payload = dict(data = "Connected")
+    #emit("log", payload, broadcast = True)
 
-if __name__ == "__main__":
-    socketio.run(app)
+#if __name__ == "__main__":
+    #socketio.run(app)
+
+
+call(['espeak "Good morning doctor Falken. Shall we play a game?" 2>/dev/null'], shell=True)
+
+while True:
+    time.sleep(1)
 
