@@ -231,9 +231,15 @@ def test_button_press(newentry):
         if lastentry == None or lastentry.is_empty():
             logging.debug("%f keypress too short, not logged" % newentry.timestamp)
             return
+        else:
+            blinkt.clear()
+            blinkt.show()
+    else:
+        sound_click()
 
     record.add_entry(newentry)
     logging.debug("%s -> added to record" % newentry.string())
+    
 
 def test_first(newentry):
     global session_start_time
@@ -255,13 +261,13 @@ def test_flush_record(newentry):
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
-        threading.Thread(target = led_matrix, args = ("led patterns/knight",255,0,0,2)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/flash",255,0,0,2)).start()
 
 def test_new_session(newentry):
     global record
     if record.testcode([6,0,6,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
-        threading.Thread(target = led_matrix, args = ("led patterns/police",0,0,255,1)).start()
+        threading.Thread(target = led_matrix, args = ("led patterns/flash",50,0,50,1)).start()
         new_participant()
         
 
@@ -277,6 +283,7 @@ def test_target_chord(newentry, interval = 30):
             logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
             logging.info("SUCCESS")
             threading.Thread(target = led_success).start()
+            sound_success()
             return
     
     else:
@@ -316,57 +323,44 @@ def test_target_chord(newentry, interval = 30):
         if newentry.code() == target_chord:
             logging.info("SUCCESS")
             threading.Thread(target = led_success).start()
+            sound_success()
             
     
     
 
 
-#  LED actions:
+#  LED & audio actions:
 # -----------
-
-def led_bluenote(duration = 1):
-    logging.debug("led_bluenote(%f)" % duration)
-    time.sleep(0.1)
-    blinkt.set_pixel(4, 0,0,255)
-    blinkt.show()
-    time.sleep(duration)
-    blinkt.set_pixel(4, 0,0,0)
-    blinkt.show()
-
-
-
-def led_redtick(duration = 0.1):
-    logging.debug("led_redtick()")
-    blinkt.set_pixel(0, 255,0,0)
-    blinkt.show()
-    time.sleep(duration)
-    blinkt.set_pixel(0, 0,0,0)
-    blinkt.show()
-    
     
 
-def led_matrix(infile, r,g,b, times):
+def led_matrix(infile, times):
     contents = open(infile).read()
     mat = [ item.split() for item in contents.split('\n')[:-1] ]
+    print(mat)
     
     for i in range(times):
         for line in mat:
             blinkt.clear()
-            for column in range(len(line)):
+            r,g,b = [ int(i) for i in line[8:11] ]
+            for column in range(len(line)-3):
                 val = int(line[column])
                 blinkt.set_pixel(column, r*val,g*val,b*val)
             blinkt.show()
-            time.sleep(0.01)
+            time.sleep(0.05)
         blinkt.clear()
     blinkt.show()
 
 
 def led_success():
-    led_matrix("led patterns/police", 255,  0,  0, 1)
-    led_matrix("led patterns/police", 255, 64,  0, 1)
-    led_matrix("led patterns/police",   0,255,  0, 1)
-    led_matrix("led patterns/police",   0,  0,255, 1)
+    led_matrix("led patterns/police", 1)
             
+            
+def sound_click():
+    system("aplay audio/Voltage.wav")
+    
+
+def sound_success():
+    system("aplay audio/schuettel2.wav")
         
 
 
