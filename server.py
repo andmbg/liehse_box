@@ -15,12 +15,11 @@ from subprocess import call
 # some preliminary settings
 
 
-# B. is for direct mechanical debouncing, replacing the insufficient
-# built-in mechanism. D. is for dealing with parasitic keylogs.
-BOUNCETIME = 0.2 # seconds
-DELAY = 0.2
-DEBUGLEVEL = logging.DEBUG
-blinkt.set_brightness(0.2)
+BOUNCETIME  = 0.2 # seconds; GPIO-internal debouncing time
+DELAY       = 0.2 # seconds; min duration to count as button press
+DARKSTRETCH = 10 # seconds; how long exploration should remain unsuccessful
+DEBUGLEVEL  = logging.DEBUG # also see logging.basicConfig() at the bottom
+blinkt.set_brightness(1)
 
 record = buttons.Record()
 listener = 0
@@ -209,7 +208,7 @@ def on_entry(newentry):
             test_quit_ui_mode(newentry)
         else:
             test_first(newentry)
-            test_target_chord(newentry, interval = 5)
+            test_target_chord(newentry, interval = DARKSTRETCH)
 
 
 
@@ -417,14 +416,14 @@ pins = {
 
 for pin in pins.items():
     GPIO.setup(pin[0], GPIO.IN, pull_up_down = GPIO.PUD_UP)
-    GPIO.add_event_detect(pin[0], GPIO.BOTH, callback = pin[1], bouncetime = 20)
+    GPIO.add_event_detect(pin[0], GPIO.BOTH, callback = pin[1], bouncetime = 100)
 
 new_participant()
 
 # one log per run of the program; means many records can be logged in one log:
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        filename=logfilename, filemode='w'
+                        #filename=logfilename, filemode='w'
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
 
