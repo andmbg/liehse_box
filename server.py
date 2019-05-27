@@ -7,10 +7,7 @@ import buttons
 import random
 import threading
 import logging
-import pprint
 import blinkt
-from math import sin, pi
-import event_triggers
 from os import system
 from subprocess import call
 
@@ -30,6 +27,10 @@ listener = 0
 target_chord = None # anything outside 1:15
 checklist = {9: None, 10: None, 12: None}
 
+
+
+
+
 def new_participant():
     # setup logging once per starting the box:
     session_date = time.localtime()
@@ -45,7 +46,7 @@ def new_participant():
     session_start_time = time.time()
     global trial_start_time
     trial_start_time = session_start_time
-    
+
     # setup single logs for debouncing (these don't end up in the result):
     global black_debouncelog
     global green_debouncelog
@@ -72,12 +73,11 @@ def new_participant():
     ui_mode = False
     global warmup
     warmup = True
-    
-    print("Starting session ", sessionid)
-   
 
-    
-    
+    print("Starting session ", sessionid)
+
+
+
 def timestamp(context):
     global session_start_time
     assert context in ["session", "trial"], "Call timestamp() with argument context = 'session' or 'trial'."
@@ -85,29 +85,7 @@ def timestamp(context):
         return time.time() - session_start_time
     if context == "trial":
         return time.time() - trial_start_time
-    
 
-    
-
-
-def schedule_set(logentry, delay = 0.2):
-    global inbox
-    global listener
-    timerID = random.random()
-    slot = logentry[0]
-    inbox[slot] = logentry[2]
-    listener = timerID
-    threading.Timer(delay, send_chord, [inbox, timerID]).start()
-
-# form Record_entry from inbox chord. Check if it should trigger events,
-# then add to record.
-def send_chord(chord, timerID):
-    global record
-    if listener == timerID:
-        newentry = buttons.Record_entry(timestamp("trial"), chord, target_chord)
-        logging.debug("%s -> send_chord()" % newentry.string())
-        on_entry(newentry) # check for event triggers
-               
 
 
 # return clean single button events. Clean means no bouncing.
@@ -133,17 +111,26 @@ def button_log(channel, log, this_time, this_state):
     return(logentry)
 
 
-#### diagnostic function of black button for debugging
-#def black_callback(channel):
-#    # hack against bouncing:
-#    time.sleep(.01)
-#    state = 1 - GPIO.input(channel)
-#
-#    if state == 0: return
-#
-#    global record
-#    pprint.pprint(record.string())
-####
+
+def schedule_set(logentry, delay = 0.2):
+    # form Record_entry from inbox chord. Check if it should trigger events,
+    # then add to record.
+    def send_chord(chord, timerID):
+        global record
+        if listener == timerID:
+            newentry = buttons.Record_entry(timestamp("trial"), chord, target_chord)
+            logging.debug("%s -> send_chord()" % newentry.string())
+            on_entry(newentry) # check for event triggers
+
+    global inbox
+    global listener
+    timerID = random.random()
+    slot = logentry[0]
+    inbox[slot] = logentry[2]
+    listener = timerID
+    threading.Timer(delay, send_chord, [inbox, timerID]).start()
+
+
 
 def black_callback(channel):
     # hack against bouncing:
@@ -180,7 +167,7 @@ def red_callback(channel):
     # returns (button, time, state):
     logentry = button_log(channel, red_debouncelog, ts, state)
     if logentry == None: return
-    
+
     red_debouncelog.append(logentry)
     schedule_set(logentry, delay = DELAY)
 
@@ -207,7 +194,7 @@ def white_callback(channel):
 # whenever a new Record_entry is sent to record:
 def on_entry(newentry):
     logging.debug("on_entry() | record length: %s" % record.len())
-    
+
     # on any button or chord above delay threshold
     test_button_press(newentry)  # THIS IS WHERE WE LOG CHORDS!
 
@@ -223,10 +210,6 @@ def on_entry(newentry):
         else:
             test_first(newentry)
             test_target_chord(newentry, interval = 5)
-
-
-
-
 
 
 
@@ -251,7 +234,7 @@ def test_button_press(newentry):
 
     record.add_entry(newentry)
     logging.debug("%s -> added to record" % newentry.string())
-    
+
 
 def test_first(newentry):
     global trial_start_time
@@ -261,7 +244,7 @@ def test_first(newentry):
         trial_start_time = time.time()
         record.entries[0].timestamp = timestamp("trial")
         logging.debug("%f this has been the first logged press in this trial" % newentry.timestamp)
-        
+
 def test_demo_chord(newentry):
     global record
     global trial_start_time
@@ -292,7 +275,7 @@ def test_new_participant(newentry):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
         new_participant()
-    
+
 def test_quit_ui_mode(newentry):
     global record
     if record.testcode([1,0]):
@@ -316,7 +299,7 @@ def test_target_chord(newentry, interval = 30):
     global target_chord
     global checklist
     logging.debug("%f newentry code: %s | target code: %s" % (newentry.timestamp, newentry.code(), target_chord))
-    
+
     if target_chord in checklist.keys():
         if newentry.code() == target_chord:
             logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
@@ -324,12 +307,12 @@ def test_target_chord(newentry, interval = 30):
             threading.Thread(target = led_success).start()
             sound_success()
             return
-    
+
     else:
         # interval up:
         if newentry.timestamp > interval:
             if newentry.code() in checklist.keys():
-                
+
                 if sum([ i == None for i in checklist.values() ]) == 0:
                     # checklist full during interval; set oldest 2chord as target:
                     logging.debug("test_target_chord: setting oldest 2chord. CL: %s" % checklist)
@@ -338,7 +321,7 @@ def test_target_chord(newentry, interval = 30):
                     record.entries[-1].target_chord = target_chord
                     logging.debug("test_target_chord: new target_chord: %s" % target_chord)
                     ## success at bottom
-                    
+
                 elif checklist[newentry.code()] == None:
                     # non-full checklist and now hitting a vacant 2chord; set target to this:
                     logging.debug("test_target_chord: target_chord == None & hitting vacant target chord.")
@@ -346,7 +329,7 @@ def test_target_chord(newentry, interval = 30):
                     # since this is already logged, correct target_chord column:
                     record.entries[-1].target_chord = target_chord
                     ## success at bottom
-                    
+
                 else:
                     # non-full checklist and now hitting a previously tested 2chord: ignore:
                     logging.debug("test_target_chord: hitting pre-tested chord; no success, keeping target_chord = None. %s" % checklist)
@@ -357,20 +340,19 @@ def test_target_chord(newentry, interval = 30):
             if newentry.code() in checklist.keys():
                 checklist[newentry.code()] = newentry.timestamp
                 logging.debug("test_target_chord: update checklist: %s" % checklist)
-        
+
         # did the above tests yield a target? then SUCCESS
         if newentry.code() == target_chord:
             logging.info("SUCCESS")
             threading.Thread(target = led_success).start()
             sound_success()
-            
-    
-    
+
+
+
 
 
 #  LED & audio actions:
-# -----------
-    
+# ----------------------
 
 def led_off():
     blinkt.clear()
@@ -379,7 +361,7 @@ def led_off():
 def led_matrix(infile, times):
     contents = open(infile).read()
     mat = [ item.split() for item in contents.split('\n')[:-1] ]
-    
+
     for i in range(times):
         for line in mat:
             blinkt.clear()
@@ -395,23 +377,23 @@ def led_matrix(infile, times):
 
 def led_success():
     led_matrix("led patterns/police", 1)
-    
+
 def led_ui_mode():
     blinkt.clear()
     blinkt.set_pixel(4, 50,0,0, .5)
     blinkt.show()
-            
-            
+
+
 def sound_click():
     call(["aplay audio/Voltage.wav 2>/dev/null"], shell=True)
-    
+
 
 def sound_success():
     call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 def sound_ui_mode():
     call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
-        
+
 
 
 
@@ -423,14 +405,6 @@ def sound_ui_mode():
 #  Beginning of app:
 # ---------------------------------------------------------------------
 
-
-
-#app = Flask(__name__)
-#app.config['SECRET_KEY'] = 'secret!'
-#socketio = SocketIO(app)
-
-
-
 # How RPi numbers GPIO pins. Consider BOARD as alternative:
 GPIO.setmode(GPIO.BCM)
 
@@ -440,32 +414,19 @@ pins = {
     15: green_callback,
     18: red_callback,
     25: white_callback }
-    
+
 for pin in pins.items():
     GPIO.setup(pin[0], GPIO.IN, pull_up_down = GPIO.PUD_UP)
     GPIO.add_event_detect(pin[0], GPIO.BOTH, callback = pin[1], bouncetime = 20)
 
 new_participant()
 
+# one log per run of the program; means many records can be logged in one log:
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
                         filename=logfilename, filemode='w'
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
-
-
-#@app.route("/")
-#def index():
-    #return render_template("index.html")
-
-#@socketio.on("connect")
-#def on_connect():
-    #payload = dict(data = "Connected")
-    #emit("log", payload, broadcast = True)
-
-#if __name__ == "__main__":
-    #socketio.run(app)
-
 
 call(['aplay audio/wargames.wav 2>/dev/null'], shell=True)
 
