@@ -20,11 +20,21 @@ class Record_entry():
         self.white     = chord['white']
         
         self.target_chord = target_chord
+        
+    def __eq__(self, other):
+        if isinstance(other, Record_entry):
+            return(
+                self.black == other.black and \
+                self.green == other.green and \
+                self.red   == other.red and\
+                self.white == other.white
+                )
+        return(False)
 
     def number_pressed(self):
         return(self.black + self.green + self.red + self.white)
         
-    def string(self):
+    def __str__(self):
         return("%f [%i, %i, %i, %i] tgt: %s" % \
             (self.timestamp, \
              self.black, self.green, self.red, self.white, \
