@@ -1,14 +1,10 @@
-#from flask import Flask, render_template
-#from flask_socketio import SocketIO, emit
 import RPi.GPIO as GPIO
 import time
-import collections
 import buttons
 import random
 import threading
 import logging
 import blinkt
-from os import system
 from subprocess import call
 
 
@@ -17,7 +13,7 @@ from subprocess import call
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
 DARKSTRETCH = 10 # seconds; how long exploration should remain unsuccessful
-DEBUGLEVEL  = logging.DEBUG # also see logging.basicConfig() at the bottom
+DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
 blinkt.set_brightness(1)
 
 # set up pins and callback functions:
@@ -61,8 +57,8 @@ def new_participant():
     ui_mode = False
     global warmup
     warmup = True
-    global lastentry
-    lastentry = None
+    global last_poll
+    last_poll = None
 
     print("Starting session ", sessionid)
 
@@ -82,24 +78,24 @@ def timestamp(context):
 
 
 def poll():
-    global lastentry
+    global last_poll
     global target_chord
     global record
     global listener
-    newentry = buttons.Record_entry(
+    new_poll = buttons.Record_entry(
         timestamp = timestamp("trial"),
         chord = { pin[1]: 1-GPIO.input(pin[0]) for pin in pins.items() },
         target_chord = target_chord)
-    if newentry == lastentry: return
+    if new_poll == last_poll: return
     
-    lastentry = newentry
+    last_poll = new_poll
         
     # deal with parasitic keypresses:
     listener = random.random()
     entryID = listener
-    threading.Timer(DELAY, catch_entry, [newentry, entryID]).start()
+    threading.Timer(DELAY, catch_entry, [new_poll, entryID]).start()
     
-    logging.debug("poll: %s" % newentry)
+    logging.debug("poll: %s" % new_poll)
 
 def catch_entry(entry, entryID):
     global listener
@@ -120,11 +116,11 @@ def on_entry(newentry):
 
     if warmup:
         logging.debug("%f in warmup mode" % timestamp("session"))
-        test_demo_chord(newentry)
+        test_demo_chord()
     else:
         test_ui_mode(newentry)
         if ui_mode:
-            test_flush_record(newentry)
+            test_flush_record()
             test_new_participant(newentry)
             test_quit_ui_mode(newentry)
         else:
@@ -153,7 +149,7 @@ def test_button_press(newentry):
         sound_click()
 
     record.add_entry(newentry)
-    logging.debug("%s -> added to record" % str(newentry))
+    logging.info("%s -> added to record" % str(newentry))
 
 
 def test_first(newentry):
@@ -165,7 +161,7 @@ def test_first(newentry):
         record.entries[0].timestamp = timestamp("trial")
         logging.debug("%f this has been the first logged press in this trial" % newentry.timestamp)
 
-def test_demo_chord(newentry):
+def test_demo_chord():
     global record
     global trial_start_time
     global warmup
@@ -176,7 +172,7 @@ def test_demo_chord(newentry):
         threading.Thread(target = led_success).start()
         sound_success()
 
-def test_flush_record(newentry):
+def test_flush_record():
     global record
     global sessionid
     if record.testcode([2,0]):
@@ -336,7 +332,7 @@ new_participant()
 # one log per run of the program; means many records can be logged in one log:
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        #filename=logfilename, filemode='w'
+                        filename=logfilename, filemode='w'
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
 
