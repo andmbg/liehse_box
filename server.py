@@ -146,7 +146,7 @@ def test_button_press(newentry):
             blinkt.clear()
             blinkt.show()
     else:
-        sound_click()
+        call(["aplay audio/Voltage.wav 2>/dev/null"], shell=True)
 
     record.add_entry(newentry)
     logging.info("%s -> added to record" % str(newentry))
@@ -165,12 +165,12 @@ def test_demo_chord():
     global record
     global trial_start_time
     global warmup
-    if record.testcode([8,0]):
+    if record.testcode([4,0,8,0]):
         time.sleep(2)
         record.entries = []
         warmup = False
         threading.Thread(target = led_success).start()
-        sound_success()
+        call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 def test_flush_record():
     global record
@@ -182,7 +182,8 @@ def test_flush_record():
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
-        led_matrix("led patterns/knight",1)
+        threading.Thread(target = led_matrix, args = ("led patterns/knight",1)).start()
+        call(["aplay audio/jingle2_saverecord.wav 2>/dev/null"], shell=True)
         led_ui_mode()
 
 def test_new_participant(newentry):
@@ -190,6 +191,7 @@ def test_new_participant(newentry):
     if record.testcode([8,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
+        call(["aplay audio/jingle1_startup.wav 2>/dev/null"], shell=True)
         new_participant()
 
 def test_quit_ui_mode(newentry):
@@ -221,7 +223,7 @@ def test_target_chord(newentry, interval = 30):
             logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
             logging.info("SUCCESS")
             threading.Thread(target = led_success).start()
-            sound_success()
+            call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
             return
 
     else:
@@ -261,7 +263,7 @@ def test_target_chord(newentry, interval = 30):
         if newentry.code() == target_chord:
             logging.info("SUCCESS")
             threading.Thread(target = led_success).start()
-            sound_success()
+            call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 
 
@@ -300,12 +302,8 @@ def led_ui_mode():
     blinkt.show()
 
 
-def sound_click():
-    call(["aplay audio/Voltage.wav 2>/dev/null"], shell=True)
 
 
-def sound_success():
-    call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 def sound_ui_mode():
     call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
@@ -336,7 +334,7 @@ logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUG
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
 
-call(['aplay audio/wargames.wav 2>/dev/null'], shell=True)
+call(['aplay audio/jingle1_startup.wav 2>/dev/null'], shell=True)
 
 while True:
     time.sleep(1 / FREQUENCY)
