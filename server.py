@@ -146,7 +146,7 @@ def test_button_press(newentry):
             blinkt.clear()
             blinkt.show()
     else:
-        call(["aplay audio/Voltage.wav 2>/dev/null"], shell=True)
+        call(["aplay audio/button.wav 2>/dev/null"], shell=True)
 
     record.add_entry(newentry)
     logging.info("%s -> added to record" % str(newentry))
