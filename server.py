@@ -12,7 +12,7 @@ from subprocess import call
 
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
-DARKSTRETCH = 10 # seconds; how long exploration should remain unsuccessful
+DARKSTRETCH = 20 # seconds; how long exploration should remain unsuccessful
 DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
 blinkt.set_brightness(1)
 
@@ -176,7 +176,7 @@ def test_flush_record():
     global record
     global sessionid
     if record.testcode([2,0]):
-        record.chop(6)
+        record.chop(2)
         csv_record = "timecode, black, green, red, white, target_chord\n"
         csv_record += record.csv()
         with open("records/%s.record" % sessionid, 'w') as f:
@@ -205,9 +205,10 @@ def test_quit_ui_mode(newentry):
 def test_ui_mode(newentry):
     global record
     global ui_mode
-    if record.testcode([6,0,6,0]):
+    if record.testcode([6,4,6,2,6,0]) or record.testcode([6,2,6,4,6,0]):
         logging.info("%f enter user interface mode" % newentry.timestamp)
         threading.Thread(target = led_ui_mode).start()
+        record.chop(6)
         sound_ui_mode()
         ui_mode = True
 
