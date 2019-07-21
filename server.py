@@ -14,8 +14,8 @@ import syncusb
 
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
-DARKSTRETCH = 1 # seconds; how long exploration should remain unsuccessful
-DEBUGLEVEL  = logging.DEBUG # also see logging.basicConfig() at the bottom
+DARKSTRETCH = 15 # seconds; how long exploration should remain unsuccessful
+DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
 #blinkt.set_brightness(1)
 
 # set up pins and callback functions:
