@@ -6,7 +6,7 @@ import threading
 import logging
 import blinkt
 from subprocess import call
-from feedback import led_off, led_matrix, led_success, led_ui_mode, sound_ui_mode
+import feedback
 import syncusb
 
 
@@ -26,22 +26,20 @@ pins = {
     25: 'white' }
 
 record = buttons.Record()
-listener = 0
 target_chord = None # anything outside 1:15
 checklist = {9: None, 10: None, 12: None}
 
-
+# setup logging once per starting the box:
+session_date = time.localtime()
+global sessionid
+sessionid = "%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d" % ( \
+    session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
+    ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
+    session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
 
 
 
 def new_participant():
-    # setup logging once per starting the box:
-    session_date = time.localtime()
-    global sessionid
-    sessionid = "%d%0.2d%0.2d_[%s]_%0.2d%0.2d%0.2d" % ( \
-        session_date.tm_year, session_date.tm_mon, session_date.tm_mday, \
-        ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"][session_date.tm_wday],
-        session_date.tm_hour, session_date.tm_min, session_date.tm_sec)
     global record
     record = buttons.Record()
 
@@ -62,8 +60,8 @@ def new_participant():
     global last_poll
     last_poll = None
 
-    threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
-    call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
+    threading.Thread(target = feedback.led_new_participant).start()
+    feedback.sound_new_participant()
     logging.debug("Starting session %s" % sessionid)
 
 
@@ -82,31 +80,33 @@ def timestamp(context):
 
 
 def poll():
-    global last_poll
+    global register
+    global register_changed
     global target_chord
-    global record
-    global listener
-    new_poll = buttons.Record_entry(
-        timestamp = timestamp("trial"),
-        chord = { pin[1]: 1-GPIO.input(pin[0]) for pin in pins.items() },
-        target_chord = target_chord)
-    if new_poll == last_poll: return
+
+    # poll new chord from GPIO pins:
+    current_state = buttons.Record_entry(
+        timestamp    = timestamp("trial"),
+        chord        = { pin[1]: 1-GPIO.input(pin[0]) for pin in pins.items() },
+        target_chord = target_chord
+        )
     
-    last_poll = new_poll
-        
-    # deal with parasitic keypresses:
-    listener = random.random()
-    entryID = listener
-    threading.Timer(DELAY, catch_entry, [new_poll, entryID]).start()
+    # is the new chord different from the previous?
+    # then change register and mark register as changed (= due for catching
+    # if it doesn't change any more before DELAY elapses):
+    if current_state != register:
+        register = current_state
+        register_changed = True
     
-    logging.debug("poll: %s" % new_poll)
-
-def catch_entry(entry, entryID):
-    global listener
-    if entryID == listener:
-        on_entry(entry) # check for event triggers
-
-
+    # if otherwise the state is the same as in last poll,
+    # then test if it's marked as changed...
+    if register_changed:
+        # and older than DELAY; if so, act:
+        if current_state.timestamp - register.timestamp > DELAY:
+            register_changed = False
+            logging.debug("poll: %s" % current_state)
+            # we now call the state an entry:
+            on_entry(current_state)
 
 
 
@@ -148,7 +148,7 @@ def test_button_press(newentry):
             logging.debug("%f keypress too short, not logged" % newentry.timestamp)
             return
         else:
-            led_off()
+            feedback.led_off()
     else:
         call(["aplay audio/button.wav 2>/dev/null"], shell=True)
 
@@ -173,8 +173,8 @@ def test_demo_chord():
         time.sleep(2)
         record.entries = []
         warmup = False
-        threading.Thread(target = led_success).start()
-        call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
+        threading.Thread(target = feedback.led_success).start()
+        feedback.sound_success()
 
 def test_flush_record():
     # Write the record to a local file in [workdir]/records and sync to USB
@@ -187,20 +187,20 @@ def test_flush_record():
         with open("records/%s.record" % sessionid, 'w') as f:
             f.write(csv_record)
         logging.info("wrote record to records/%s.record" % sessionid)
-        threading.Thread(target = led_matrix, args = ("led patterns/knight",1)).start()
-        call(["aplay audio/jingle2_saverecord.wav 2>/dev/null"], shell=True)
-        led_ui_mode()
+        threading.Thread(target = feedback.sound_localsave).start()
+        feedback.led_sync_done()
+        feedback.led_ui_mode()
         
 def test_syncusb():
     global record
     global sessionid
+    # 3x red: feedback and sync.
     if record.testcode([4,0]):
         record.chop(2)
         syncusb.syncusb()
-    
-    
-    
-    
+        threading.Thread(target = feedback.sound_usbsync_done).start()
+        feedback.led_sync_done()
+        feedback.led_ui_mode()
 
 def test_new_participant(newentry):
     global record
@@ -210,10 +210,12 @@ def test_new_participant(newentry):
 
 def test_quit_ui_mode(newentry):
     global record
+    global ui_mode
     if record.testcode([1,0]):
         logging.info("%f exit user interface mode" % newentry.timestamp)
         record.chop(2)
-        threading.Thread(target = led_off).start()
+        threading.Thread(target = feedback.led_off).start()
+        threading.Thread(target = feedback.sound_exit_ui).start()
         ui_mode = False
 
 def test_ui_mode(newentry):
@@ -221,12 +223,12 @@ def test_ui_mode(newentry):
     global ui_mode
     if record.testcode([6,4,6,2,6,0]) or record.testcode([6,2,6,4,6,0]):
         logging.info("%f enter user interface mode" % newentry.timestamp)
-        threading.Thread(target = led_ui_mode).start()
         record.chop(6)
-        sound_ui_mode()
+        threading.Thread(target = feedback.led_ui_mode).start()
+        threading.Thread(target = feedback.sound_ui_mode).start()
         ui_mode = True
 
-# if interval (30s?) has elapsed and newentry contains white, success.
+# if dark interval has elapsed and newentry contains white, success.
 def test_target_chord(newentry, interval = 30):
     global record
     global target_chord
@@ -237,8 +239,8 @@ def test_target_chord(newentry, interval = 30):
         if newentry.code() == target_chord:
             logging.debug("test_target_chord: interval elapsed, newentry (%s) == target_chord (%s)" % (newentry.code(), target_chord))
             logging.info("SUCCESS")
-            threading.Thread(target = led_success).start()
-            call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
+            threading.Thread(target = feedback.led_success).start()
+            threading.Thread(target = feedback.sound_success).start()
             return
 
     else:
@@ -277,26 +279,21 @@ def test_target_chord(newentry, interval = 30):
         # did the above tests yield a target? then SUCCESS
         if newentry.code() == target_chord:
             logging.info("SUCCESS")
-            threading.Thread(target = led_success).start()
-            call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
-
-
-
-
-
-#  LED & audio actions:
-# ----------------------
-
-
-
-
-
+            threading.Thread(target = feedback.led_success).start()
+            threading.Thread(target = feedback.sound_success).start()
 
 
 
 # =====================================================================
 #  Beginning of app:
 # ---------------------------------------------------------------------
+
+# one log per run of the program; means many records can be logged in one log:
+logfilename = "log/%s.log" % sessionid
+logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
+                        #filename=logfilename, filemode='w'
+                        )
+logging.info("Log %s start.\n-----------------------" % sessionid)
 
 # How RPi numbers GPIO pins. Consider BOARD as alternative:
 GPIO.setmode(GPIO.BCM)
@@ -306,14 +303,19 @@ for pin in pins.items():
 
 new_participant()
 
-# one log per run of the program; means many records can be logged in one log:
-logfilename = "log/%s.log" % sessionid
-logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        #filename=logfilename, filemode='w'
-                        )
-logging.info("Log %s start.\n-----------------------" % sessionid)
+
+# initialize register:
+register = buttons.Record_entry(
+    timestamp = timestamp("session"),
+    chord = { pin[1]: 1 for pin in pins.items() },
+    target_chord = None
+    )
+    
 
 while True:
     time.sleep(1 / FREQUENCY)
     poll()
+
+syncusb.syncusb()
+
 

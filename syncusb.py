@@ -3,15 +3,15 @@ from os.path import ismount
 import os
 import logging
 from time import localtime
-from feedback import led_warning, led_sync_success
+import feedback
 from subprocess import call
 
 def syncusb():
 
     local_logdir = "log"
     local_recdir = "records"
-    remote_dir = "/media/pi/STICKERL/LIEHSE"
-    usb_path = "/media/pi/STICKERL"
+    remote_dir = "/media/pi/liehse/LIEHSE"
+    usb_path = "/media/pi/liehse"
 
     # First, establish that the USB storage is connected, accessible
     # and we have the log and records directory in place:
@@ -20,7 +20,8 @@ def syncusb():
 
     if not usb_connected:
         logging.warning("USB not connected, aborting.")
-        led_warning()
+        feedback.led_warning()
+        feedback.sound_usberror()
         return()
 
     logging.debug("USB connected.")
@@ -31,7 +32,8 @@ def syncusb():
             logging.info("Created %s" % remote_dir)
         except OSError:
             logging.warning("Creation of LIEHSE failed.")
-            led_warning()
+            feedback.led_warning()
+            feedback.sound_usbaccesserror()
             return()
 
     if not exists(remote_dir + "/log"):
@@ -40,7 +42,8 @@ def syncusb():
             logging.info("Created %s." % remote_dir + "/log")
         except OSError:
             logging.warning("Creation of %s" % remote_dir + "/log failed.")
-            led_warning()
+            feedback.led_warning()
+            feedback.sound_usbaccesserror()
             return()
             
     logging.debug("log directory exists.")
@@ -51,7 +54,8 @@ def syncusb():
             logging.info("Created %s." % remote_dir + "/records")
         except OSError:
             logging.warning("Creation of %s" % remote_dir + "/records failed.")
-            led_warning()
+            feedback.led_warning()
+            feedback.sound_usbaccesserror()
             return()
 
     logging.debug("records directory exists.")
@@ -65,10 +69,4 @@ def syncusb():
     batcmd = "rsync -rtvh " + local_recdir + " " + remote_dir
     logging.debug(batcmd + "...")
     call([batcmd], shell = True)
-
-
-
-
-
-
 

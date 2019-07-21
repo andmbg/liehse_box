@@ -23,19 +23,42 @@ def led_matrix(infile, times):
     blinkt.show()
 
 def led_success():
-    led_matrix("led patterns/police", 1)
+    led_matrix("led patterns/success", 1)
     
-def led_warning():
-    led_matrix("led patterns/warning", 1)
-    
-def led_sync_success():
-    led_matrix("led patterns/knight", 1)
+def led_sync_done():
+    led_matrix("led patterns/sync_done", 1)
 
 def led_ui_mode():
     blinkt.clear()
-    blinkt.set_pixel(4, 50,0,0, .5)
+    blinkt.set_pixel(0, 50,50,50, .5)
     blinkt.show()
 
-def sound_ui_mode():
-    call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
+def led_warning():
+    led_matrix("led patterns/warning", 4)
 
+def led_new_participant():
+    led_matrix("led patterns/new_participant", 1)
+
+def sound_ui_mode():
+    call(["aplay audio/voice_uiMode.wav 2>/dev/null"], shell=True)
+
+def sound_exit_ui():
+    call(["aplay audio/voice_exit.wav 2>/dev/null"], shell=True)
+
+def sound_success():
+    call(["aplay audio/success.wav 2>/dev/null"], shell=True)
+
+def sound_localsave():
+    call(["aplay audio/voice_saved.wav 2>/dev/null"], shell=True)
+
+def sound_usberror():
+    call(["aplay audio/voice_usberror.wav"], shell=True)
+    
+def sound_usbaccesserror():
+    call(["aplay audio/voice_usbaccesserror.wav"], shell=True)
+
+def sound_new_participant():
+    call(["aplay audio/voice_new_participant.wav"], shell=True)
+
+def sound_usbsync_done():
+    call(["aplay audio/voice_sync.wav"], shell=True)
