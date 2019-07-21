@@ -6,15 +6,17 @@ import threading
 import logging
 import blinkt
 from subprocess import call
+from feedback import led_off, led_matrix, led_success, led_ui_mode, sound_ui_mode
+import syncusb
 
 
 # some preliminary settings
 
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
-DARKSTRETCH = 20 # seconds; how long exploration should remain unsuccessful
-DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
-blinkt.set_brightness(1)
+DARKSTRETCH = 1 # seconds; how long exploration should remain unsuccessful
+DEBUGLEVEL  = logging.DEBUG # also see logging.basicConfig() at the bottom
+#blinkt.set_brightness(1)
 
 # set up pins and callback functions:
 pins = {
@@ -60,7 +62,9 @@ def new_participant():
     global last_poll
     last_poll = None
 
-    print("Starting session ", sessionid)
+    threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
+    call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
+    logging.debug("Starting session %s" % sessionid)
 
 
 
@@ -123,6 +127,7 @@ def on_entry(newentry):
             test_flush_record()
             test_new_participant(newentry)
             test_quit_ui_mode(newentry)
+            test_syncusb()
         else:
             test_first(newentry)
             test_target_chord(newentry, interval = DARKSTRETCH)
@@ -143,8 +148,7 @@ def test_button_press(newentry):
             logging.debug("%f keypress too short, not logged" % newentry.timestamp)
             return
         else:
-            blinkt.clear()
-            blinkt.show()
+            led_off()
     else:
         call(["aplay audio/button.wav 2>/dev/null"], shell=True)
 
@@ -173,6 +177,7 @@ def test_demo_chord():
         call(["aplay audio/schuettel2.wav 2>/dev/null"], shell=True)
 
 def test_flush_record():
+    # Write the record to a local file in [workdir]/records and sync to USB
     global record
     global sessionid
     if record.testcode([2,0]):
@@ -185,13 +190,22 @@ def test_flush_record():
         threading.Thread(target = led_matrix, args = ("led patterns/knight",1)).start()
         call(["aplay audio/jingle2_saverecord.wav 2>/dev/null"], shell=True)
         led_ui_mode()
+        
+def test_syncusb():
+    global record
+    global sessionid
+    if record.testcode([4,0]):
+        record.chop(2)
+        syncusb.syncusb()
+    
+    
+    
+    
 
 def test_new_participant(newentry):
     global record
     if record.testcode([8,0]):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
-        threading.Thread(target = led_matrix, args = ("led patterns/flash",1)).start()
-        call(["aplay audio/jingle1_startup.wav 2>/dev/null"], shell=True)
         new_participant()
 
 def test_quit_ui_mode(newentry):
@@ -273,42 +287,6 @@ def test_target_chord(newentry, interval = 30):
 #  LED & audio actions:
 # ----------------------
 
-def led_off():
-    blinkt.clear()
-    blinkt.show()
-
-def led_matrix(infile, times):
-    contents = open(infile).read()
-    mat = [ item.split() for item in contents.split('\n')[:-1] ]
-
-    for i in range(times):
-        for line in mat:
-            blinkt.clear()
-            r,g,b = [ int(i) for i in line[8:11] ]
-            for column in range(len(line)-3):
-                val = int(line[column])
-                blinkt.set_pixel(column, r*val,g*val,b*val)
-            blinkt.show()
-            time.sleep(0.05)
-        blinkt.clear()
-    blinkt.show()
-
-
-def led_success():
-    led_matrix("led patterns/police", 1)
-
-def led_ui_mode():
-    blinkt.clear()
-    blinkt.set_pixel(4, 50,0,0, .5)
-    blinkt.show()
-
-
-
-
-
-def sound_ui_mode():
-    call(["aplay audio/loeffel.wav 2>/dev/null"], shell=True)
-
 
 
 
@@ -331,11 +309,9 @@ new_participant()
 # one log per run of the program; means many records can be logged in one log:
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        filename=logfilename, filemode='w'
+                        #filename=logfilename, filemode='w'
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
-
-call(['aplay audio/jingle1_startup.wav 2>/dev/null'], shell=True)
 
 while True:
     time.sleep(1 / FREQUENCY)
