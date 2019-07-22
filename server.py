@@ -8,13 +8,14 @@ import blinkt
 from subprocess import call
 import feedback
 import syncusb
+import json
 
 
 # some preliminary settings
 
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
-DARKSTRETCH = 15 # seconds; how long exploration should remain unsuccessful
+DARKSTRETCH = 1 # seconds; how long exploration should remain unsuccessful
 DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
 #blinkt.set_brightness(1)
 
@@ -60,10 +61,16 @@ def new_participant():
     global last_poll
     last_poll = None
 
+    global orientation_tickets
+    with open("orientation_tickets") as f:
+        orientation_tickets = json.load(f)
+    global orientation
+    orientation = orientation_tickets[0]
+
     threading.Thread(target = feedback.led_new_participant).start()
     feedback.sound_new_participant()
+    feedback.sound_orientation(orientation)
     logging.debug("Starting session %s" % sessionid)
-
 
 
 def timestamp(context):
@@ -121,16 +128,16 @@ def on_entry(newentry):
     if warmup:
         logging.debug("%f in warmup mode" % timestamp("session"))
         test_demo_chord()
+
+    test_ui_mode(newentry)
+    if ui_mode:
+        test_flush_record(newentry)
+        test_new_participant(newentry)
+        test_quit_ui_mode(newentry)
+        test_syncusb()
     else:
-        test_ui_mode(newentry)
-        if ui_mode:
-            test_flush_record()
-            test_new_participant(newentry)
-            test_quit_ui_mode(newentry)
-            test_syncusb()
-        else:
-            test_first(newentry)
-            test_target_chord(newentry, interval = DARKSTRETCH)
+        test_first(newentry)
+        test_target_chord(newentry, interval = DARKSTRETCH)
 
 
 
@@ -176,20 +183,32 @@ def test_demo_chord():
         threading.Thread(target = feedback.led_success).start()
         feedback.sound_success()
 
-def test_flush_record():
+def test_flush_record(newentry):
     # Write the record to a local file in [workdir]/records and sync to USB
     global record
     global sessionid
+    global orientation
+    global orientation_tickets
     if record.testcode([2,0]):
         record.chop(2)
-        csv_record = "timecode, black, green, red, white, target_chord\n"
-        csv_record += record.csv()
-        with open("records/%s.record" % sessionid, 'w') as f:
+        csv_record = "timecode, black, green, red, white, target_chord, orientation\n"
+        csv_record += record.csv(orientation)
+        filename = sessionid + str(orientation)
+        with open("records/%s.record" % filename, 'w') as f:
             f.write(csv_record)
-        logging.info("wrote record to records/%s.record" % sessionid)
+            
+        # update orientation tickets:
+        orientation_tickets = orientation_tickets[1:]
+        with open("orientation_tickets", 'w') as f:
+            json.dump(orientation_tickets, f)
+        
+        logging.info("wrote record to records/%s.record" % filename)
         threading.Thread(target = feedback.sound_localsave).start()
         feedback.led_sync_done()
-        feedback.led_ui_mode()
+
+        # automatically start new participant:
+        logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
+        new_participant()
         
 def test_syncusb():
     global record
