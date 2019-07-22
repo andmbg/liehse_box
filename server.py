@@ -15,7 +15,7 @@ import json
 
 FREQUENCY   = 100
 DELAY       = 0.2 # seconds; min duration to count as button press
-DARKSTRETCH = 1 # seconds; how long exploration should remain unsuccessful
+DARKSTRETCH = 10 # seconds; how long exploration should remain unsuccessful
 DEBUGLEVEL  = logging.INFO # also see logging.basicConfig() at the bottom
 #blinkt.set_brightness(1)
 
@@ -61,15 +61,15 @@ def new_participant():
     global last_poll
     last_poll = None
 
-    global orientation_tickets
-    with open("orientation_tickets") as f:
-        orientation_tickets = json.load(f)
-    global orientation
-    orientation = orientation_tickets[0]
+    global condition_tickets
+    with open("condition_tickets") as f:
+        condition_tickets = json.load(f)
+    global condition
+    condition = condition_tickets[0]
 
     threading.Thread(target = feedback.led_new_participant).start()
     feedback.sound_new_participant()
-    feedback.sound_orientation(orientation)
+    feedback.sound_condition(condition)
     logging.debug("Starting session %s" % sessionid)
 
 
@@ -125,20 +125,20 @@ def on_entry(newentry):
     # on any button or chord above delay threshold
     test_button_press(newentry)  # THIS IS WHERE WE LOG CHORDS!
 
-    if warmup:
-        logging.debug("%f in warmup mode" % timestamp("session"))
-        test_demo_chord()
-
-    test_ui_mode(newentry)
     if ui_mode:
-        test_flush_record(newentry)
-        test_new_participant(newentry)
-        test_quit_ui_mode(newentry)
-        test_syncusb()
+        test_flush_record(newentry)    # green
+        test_new_participant(newentry) # white
+        test_syncusb()                 # red
     else:
-        test_first(newentry)
-        test_target_chord(newentry, interval = DARKSTRETCH)
-
+        if warmup:
+            logging.debug("%f in warmup mode" % timestamp("session"))
+            test_demo_chord()
+            test_ui_mode(newentry)
+        else:
+            test_first(newentry)
+            test_target_chord(newentry, interval = DARKSTRETCH)
+        
+        test_ui_mode(newentry)
 
 
 
@@ -154,8 +154,8 @@ def test_button_press(newentry):
         if lastentry == None or lastentry.is_empty():
             logging.debug("%f keypress too short, not logged" % newentry.timestamp)
             return
-        else:
-            feedback.led_off()
+        #else:
+        #    feedback.led_off()
     else:
         call(["aplay audio/button.wav 2>/dev/null"], shell=True)
 
@@ -187,20 +187,20 @@ def test_flush_record(newentry):
     # Write the record to a local file in [workdir]/records and sync to USB
     global record
     global sessionid
-    global orientation
-    global orientation_tickets
+    global condition
+    global condition_tickets
     if record.testcode([2,0]):
         record.chop(2)
-        csv_record = "timecode, black, green, red, white, target_chord, orientation\n"
-        csv_record += record.csv(orientation)
-        filename = sessionid + str(orientation)
+        csv_record = "timecode, black, green, red, white, target_chord, condition\n"
+        csv_record += record.csv(condition)
+        filename = sessionid + "_" + str(condition)
         with open("records/%s.record" % filename, 'w') as f:
             f.write(csv_record)
             
-        # update orientation tickets:
-        orientation_tickets = orientation_tickets[1:]
-        with open("orientation_tickets", 'w') as f:
-            json.dump(orientation_tickets, f)
+        # update condition tickets:
+        condition_tickets = condition_tickets[1:]
+        with open("condition_tickets", 'w') as f:
+            json.dump(condition_tickets, f)
         
         logging.info("wrote record to records/%s.record" % filename)
         threading.Thread(target = feedback.sound_localsave).start()
@@ -219,7 +219,7 @@ def test_syncusb():
         syncusb.syncusb()
         threading.Thread(target = feedback.sound_usbsync_done).start()
         feedback.led_sync_done()
-        feedback.led_ui_mode()
+        new_participant()
 
 def test_new_participant(newentry):
     global record
@@ -227,25 +227,36 @@ def test_new_participant(newentry):
         logging.info("%f ========= [ STARTING NEW SESSION ] =========" % newentry.timestamp)
         new_participant()
 
-def test_quit_ui_mode(newentry):
-    global record
-    global ui_mode
-    if record.testcode([1,0]):
-        logging.info("%f exit user interface mode" % newentry.timestamp)
-        record.chop(2)
-        threading.Thread(target = feedback.led_off).start()
-        threading.Thread(target = feedback.sound_exit_ui).start()
-        ui_mode = False
+#def test_quit_ui_mode(newentry):
+#    global record
+#    global ui_mode
+#    if record.testcode([1,0]):
+#        logging.info("%f exit user interface mode" % newentry.timestamp)
+#        record.chop(2)
+#        threading.Thread(target = feedback.led_off).start()
+#        threading.Thread(target = feedback.sound_exit_ui).start()
+#        ui_mode = False
 
 def test_ui_mode(newentry):
     global record
     global ui_mode
+    global warmup
     if record.testcode([6,4,6,2,6,0]) or record.testcode([6,2,6,4,6,0]):
         logging.info("%f enter user interface mode" % newentry.timestamp)
         record.chop(6)
         threading.Thread(target = feedback.led_ui_mode).start()
         threading.Thread(target = feedback.sound_ui_mode).start()
         ui_mode = True
+        warmup = False
+        # add fake button release to prevent evaluation of the last button before
+        # triggering UI mode:
+        record.add_entry(
+            buttons.Record_entry(
+                timestamp    = timestamp("trial"),
+                chord        = { pin[1]: 0 for pin in pins.items() },
+                target_chord = target_chord
+                )
+        )
 
 # if dark interval has elapsed and newentry contains white, success.
 def test_target_chord(newentry, interval = 30):
@@ -310,7 +321,7 @@ def test_target_chord(newentry, interval = 30):
 # one log per run of the program; means many records can be logged in one log:
 logfilename = "log/%s.log" % sessionid
 logging.basicConfig(format="%(name)s - %(levelname)s - %(message)s", level=DEBUGLEVEL,
-                        #filename=logfilename, filemode='w'
+                        filename=logfilename, filemode='w'
                         )
 logging.info("Log %s start.\n-----------------------" % sessionid)
 

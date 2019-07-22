@@ -63,13 +63,15 @@ def sound_new_participant():
 def sound_usbsync_done():
     call(["aplay audio/voice_sync.wav"], shell=True)
 
-def sound_orientation(orientation):
-    if orientation == 3:
-        call(["aplay audio/voice_3oclock.wav"], shell=True)
-    if orientation == 6:
-        call(["aplay audio/voice_6oclock.wav"], shell=True)
-    if orientation == 9:
-        call(["aplay audio/voice_9oclock.wav"], shell=True)
-    if orientation == 12:
-        call(["aplay audio/voice_12oclock.wav"], shell=True)
+def sound_condition(condition):
+    if condition == 0:
+        call(["aplay audio/voice_cond0.wav"], shell=True)
+    if condition == 1:
+        call(["aplay audio/voice_cond1.wav"], shell=True)
+    if condition == 2:
+        call(["aplay audio/voice_cond2.wav"], shell=True)
+    if condition == 3:
+        call(["aplay audio/voice_cond3.wav"], shell=True)
+    if condition == 4:
+        call(["aplay audio/voice_cond4.wav"], shell=True)
 

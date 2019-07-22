@@ -40,8 +40,8 @@ class Record_entry():
              self.black, self.green, self.red, self.white, \
              self.target_chord))
 
-    def csv(self, orientation):
-        return("%f, %i, %i, %i, %i, %s, %s" % (self.timestamp, self.black, self.green, self.red, self.white, self.target_chord, orientation))
+    def csv(self, condition):
+        return("%f, %i, %i, %i, %i, %s, %s" % (self.timestamp, self.black, self.green, self.red, self.white, self.target_chord, condition))
         
         
     def is_empty(self): return self.black + self.green + self.red + self.white == 0
@@ -61,8 +61,8 @@ class Record():
         assert type(entry) is Record_entry, "attempt to add something other than a Record_entry to Record."
         self.entries.append(entry)
     
-    def csv(self, orientation = 0):
-        entrylist = [ entry.csv(orientation = orientation) for entry in self.entries ]
+    def csv(self, condition = 9):
+        entrylist = [ entry.csv(condition = condition) for entry in self.entries ]
         return('\n'.join(entrylist))
     
     def last(self):
